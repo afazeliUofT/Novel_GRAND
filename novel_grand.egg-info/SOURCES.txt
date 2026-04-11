@@ -21,6 +21,7 @@ novel_grand/models/training.py
 novel_grand/scripts/__init__.py
 novel_grand/scripts/collect_train.py
 novel_grand/scripts/evaluate.py
+novel_grand/scripts/probe_legacy.py
 novel_grand/scripts/report.py
 novel_grand/scripts/smoke.py
 novel_grand/scripts/train_tags.py

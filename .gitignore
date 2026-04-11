@@ -1,3 +1,9 @@
 
 # FIR local virtualenv
 .venv-fir/
+# Python cache / build noise
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+probe_outputs/check_tags_package_*.log

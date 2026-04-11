@@ -1,0 +1,74 @@
+experiment_name: fir_legacy_probe_default
+output_root: outputs
+
+system:
+  device: cpu
+  num_workers: 64
+  torch_threads_per_worker: 1
+  seed: 20260411
+
+nr:
+  k: 1088
+  n: 1344
+  bits_per_symbol: 4
+  num_ofdm_symbols: 14
+  fft_size: 24
+  cyclic_prefix_length: 0
+  subcarrier_spacing_hz: 30000.0
+  num_guard_carriers: [0, 0]
+  dc_null: false
+
+channel:
+  mode: tdl
+  delay_profile: C300
+  delay_spread_s: 3.0e-7
+  carrier_frequency_hz: 3.5e9
+  min_speed_mps: 2.0
+  max_speed_mps: 8.33
+  perfect_csi_equalization: true
+  eps_equalizer: 1.0e-8
+
+simulation:
+  ebn0_db_list: [8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0]
+  train_frames_per_worker_per_snr: 120
+  eval_frames_per_worker_per_snr: 250
+  sampled_failure_traces_per_worker_per_snr: 25
+
+legacy_ldpc:
+  num_iter: 12
+  cn_update: minsum
+  cn_schedule: layered
+  llr_max: 8.0
+  early_stop: true
+
+# Only used by probe_legacy.py
+probe:
+  frames_per_worker_per_snr: 64
+  target_failure_min: 0.01
+  target_failure_max: 0.20
+  recommend_count: 5
+
+# Kept for compatibility with the shared modules.
+grand:
+  topk_bits: 96
+  individual_init_width: 48
+  query_cap: 5000
+  max_primitives_in_pattern: 10
+  max_group_count: 20
+  search_expand_width: 10
+  overlap_penalty: 0.35
+  group_bonus_log_size: 0.10
+  keep_oracle_upper_bound: true
+
+training:
+  snapshot_hidden_dims: [64, 32]
+  bit_hidden_dims: [96, 64]
+  epochs: 12
+  batch_size: 2048
+  learning_rate: 1.0e-3
+  weight_decay: 1.0e-5
+  neg_to_pos_ratio: 8
+  validation_fraction: 0.1
+
+report:
+  query_quantiles: [0.5, 0.9, 0.99]

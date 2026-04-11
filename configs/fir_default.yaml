@@ -28,8 +28,13 @@ channel:
   perfect_csi_equalization: true
   eps_equalizer: 1.0e-8
 
+# IMPORTANT:
+# The previous 5.0-7.0 dB ladder put the legacy LDPC into an almost-all-fail regime.
+# This provisional ladder moves the run much closer to the intended hybrid-rescue zone.
+# Still run the legacy probe first and, if needed, use the auto-generated config from:
+# outputs/fir_legacy_probe_default/reports/recommended_full_config.yaml
 simulation:
-  ebn0_db_list: [5.0, 5.5, 6.0, 6.5, 7.0]
+  ebn0_db_list: [11.0, 11.5, 12.0, 12.5, 13.0]
   train_frames_per_worker_per_snr: 120
   eval_frames_per_worker_per_snr: 250
   sampled_failure_traces_per_worker_per_snr: 25

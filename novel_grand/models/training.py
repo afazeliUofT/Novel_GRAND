@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,8 +21,50 @@ def _standardize_fit(x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     return mean.astype(np.float32), std.astype(np.float32)
 
 
+
 def _standardize_apply(x: np.ndarray, mean: np.ndarray, std: np.ndarray) -> np.ndarray:
     return ((x - mean) / std).astype(np.float32)
+
+
+
+def _as_numpy(x) -> np.ndarray:
+    if isinstance(x, np.ndarray):
+        return x.astype(np.float32, copy=False)
+    if torch.is_tensor(x):
+        return x.detach().cpu().numpy().astype(np.float32, copy=False)
+    return np.asarray(x, dtype=np.float32)
+
+
+
+def _torch_load_bundle(path: str | Path, device: str = "cpu"):
+    """Load checkpoints robustly across PyTorch versions.
+
+    PyTorch >=2.6 switched the default of ``weights_only`` to ``True``.
+    Older bundles in this repo stored NumPy arrays, which makes a strict
+    weights-only load fail. We first try the modern safe path. If that fails,
+    we retry with ``weights_only=False`` for trusted local checkpoints.
+    """
+    path = Path(path)
+    load_kwargs = {"map_location": device}
+
+    try:
+        sig = inspect.signature(torch.load)
+        has_weights_only = "weights_only" in sig.parameters
+    except Exception:
+        has_weights_only = False
+
+    first_exc = None
+    if has_weights_only:
+        try:
+            return torch.load(path, weights_only=True, **load_kwargs)
+        except Exception as exc:  # pragma: no cover - exercised on FIR
+            first_exc = exc
+            try:
+                return torch.load(path, weights_only=False, **load_kwargs)
+            except Exception:
+                raise first_exc
+
+    return torch.load(path, **load_kwargs)
 
 
 @dataclass
@@ -60,6 +103,7 @@ class BitRankerModel:
         return 1.0 / (1.0 + np.exp(-logits))
 
 
+
 def _fit_common(
     x: np.ndarray,
     y: np.ndarray,
@@ -76,25 +120,29 @@ def _fit_common(
 
     x_t = torch.from_numpy(x_std)
     y_t = torch.from_numpy(y.astype(np.float32)).reshape(-1, 1)
-
     dataset = TensorDataset(x_t, y_t)
+
     n_total = len(dataset)
     n_val = max(1, int(0.1 * n_total))
     n_train = max(1, n_total - n_val)
-    train_ds, val_ds = random_split(dataset, [n_train, n_val], generator=torch.Generator().manual_seed(1234))
+    train_ds, val_ds = random_split(
+        dataset,
+        [n_train, n_val],
+        generator=torch.Generator().manual_seed(1234),
+    )
 
     train_loader = DataLoader(train_ds, batch_size=min(batch_size, n_train), shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=min(batch_size, n_val), shuffle=False)
 
     model = TabularMLP(x.shape[1], hidden_dims).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+
     if task == "regression":
         loss_fn = nn.MSELoss()
     else:
-        pos_weight = (float((y == 0).sum()) / max(float((y == 1).sum()), 1.0))
+        pos_weight = float((y == 0).sum()) / max(float((y == 1).sum()), 1.0)
         loss_fn = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([pos_weight], device=device))
 
-    best = None
     best_state = None
     best_val = float("inf")
 
@@ -122,14 +170,20 @@ def _fit_common(
                 val_loss += float(loss.item()) * bs
                 n_seen += bs
         val_loss /= max(n_seen, 1)
+
         if val_loss < best_val:
             best_val = val_loss
             best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
-            best = model
 
     assert best_state is not None
     model.load_state_dict(best_state)
-    return model, mean, std, {"best_val_loss": best_val, "n_total": n_total, "n_train": n_train, "n_val": n_val}
+    return model, mean, std, {
+        "best_val_loss": best_val,
+        "n_total": n_total,
+        "n_train": n_train,
+        "n_val": n_val,
+    }
+
 
 
 def fit_snapshot_selector(x, y, cfg, device="cpu"):
@@ -147,6 +201,7 @@ def fit_snapshot_selector(x, y, cfg, device="cpu"):
     )
 
 
+
 def fit_bit_ranker(x, y, cfg, device="cpu"):
     tr_cfg = cfg["training"]
     return _fit_common(
@@ -162,34 +217,53 @@ def fit_bit_ranker(x, y, cfg, device="cpu"):
     )
 
 
+
 def save_model_bundle(path: str | Path, model: nn.Module, mean: np.ndarray, std: np.ndarray, meta: Dict) -> None:
+    """Save a PyTorch-safe checkpoint bundle.
+
+    The key change relative to the earlier version is that the normalization
+    vectors are stored as tensors rather than NumPy arrays, which keeps the
+    bundle compatible with ``weights_only=True`` loading.
+    """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    torch.save(
-        {
-            "state_dict": model.state_dict(),
-            "mean": mean,
-            "std": std,
-            "meta": meta,
-        },
-        path,
-    )
+    bundle = {
+        "format_version": 2,
+        "state_dict": {k: v.detach().cpu().clone() for k, v in model.state_dict().items()},
+        "mean": torch.as_tensor(mean, dtype=torch.float32),
+        "std": torch.as_tensor(std, dtype=torch.float32),
+        "meta": dict(meta),
+    }
+    torch.save(bundle, path)
+
 
 
 def load_snapshot_selector(path: str | Path, hidden_dims, in_dim: int, device: str = "cpu") -> SnapshotSelectorModel:
-    ckpt = torch.load(path, map_location=device)
+    ckpt = _torch_load_bundle(path, device=device)
     model = TabularMLP(in_dim, hidden_dims).to(device)
     model.load_state_dict(ckpt["state_dict"])
     model.eval()
-    return SnapshotSelectorModel(model=model, mean=ckpt["mean"], std=ckpt["std"], device=device)
+    return SnapshotSelectorModel(
+        model=model,
+        mean=_as_numpy(ckpt["mean"]),
+        std=_as_numpy(ckpt["std"]),
+        device=device,
+    )
+
 
 
 def load_bit_ranker(path: str | Path, hidden_dims, in_dim: int, device: str = "cpu") -> BitRankerModel:
-    ckpt = torch.load(path, map_location=device)
+    ckpt = _torch_load_bundle(path, device=device)
     model = TabularMLP(in_dim, hidden_dims).to(device)
     model.load_state_dict(ckpt["state_dict"])
     model.eval()
-    return BitRankerModel(model=model, mean=ckpt["mean"], std=ckpt["std"], device=device)
+    return BitRankerModel(
+        model=model,
+        mean=_as_numpy(ckpt["mean"]),
+        std=_as_numpy(ckpt["std"]),
+        device=device,
+    )
+
 
 
 def save_meta_json(path: str | Path, data: Dict) -> None:

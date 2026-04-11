@@ -1,0 +1,7 @@
+[effective-pcm] building cache for k=1088 n=1344 n_ldpc=3536 ...
+[effective-pcm] wrote /scratch/rsadve1/Novel_GRAND/outputs/fir_legacy_probe_default/outputs/_effective_code_cache/ldpc_eff_pcm_k1088_n1344_nldpc3536_bps4_bgbg1_z52.npz
+{
+  "status": "ok",
+  "n_jobs": 256,
+  "out_root": "/scratch/rsadve1/Novel_GRAND/outputs/fir_legacy_probe_default/outputs/fir_tags_grand_autotuned"
+}

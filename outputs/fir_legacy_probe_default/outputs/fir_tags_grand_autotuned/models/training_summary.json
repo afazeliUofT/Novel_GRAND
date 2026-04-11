@@ -1,0 +1,16 @@
+{
+  "snapshot_rows": 37608,
+  "bit_rows": 1058904,
+  "snapshot_meta": {
+    "best_val_loss": 7.479083340397065e-05,
+    "n_total": 37608,
+    "n_train": 33848,
+    "n_val": 3760
+  },
+  "bit_meta": {
+    "best_val_loss": 0.3178915276384655,
+    "n_total": 1058904,
+    "n_train": 953014,
+    "n_val": 105890
+  }
+}

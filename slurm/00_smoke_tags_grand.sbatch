@@ -22,4 +22,5 @@ export MKL_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 export NUMEXPR_NUM_THREADS=1
 
-python -m novel_grand.scripts.smoke --config configs/fir_smoke.yaml
+CFG="${NOVEL_GRAND_CONFIG:-configs/fir_smoke.yaml}"
+python -m novel_grand.scripts.smoke --config "${CFG}"
