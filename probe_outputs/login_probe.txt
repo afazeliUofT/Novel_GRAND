@@ -1,0 +1,285 @@
+
+================================================================
+BASIC CONTEXT
+================================================================
+timestamp: 2026-04-10T22:49:13-07:00
+hostname : login1
+pwd      : /home/rsadve1/scratch/Novel_GRAND
+user     : rsadve1
+shell    : /bin/bash
+
+================================================================
+OS / GLIBC / CPU / MEMORY / DISK
+================================================================
+Linux login1 5.14.0-570.22.1.el9_6.x86_64 #1 SMP PREEMPT_DYNAMIC Thu Jun 19 08:10:32 EDT 2025 x86_64 AMD EPYC 9135 16-Core Processor AuthenticAMD GNU/Linux
+
+NAME="AlmaLinux"
+VERSION="9.6 (Sage Margay)"
+ID="almalinux"
+ID_LIKE="rhel centos fedora"
+VERSION_ID="9.6"
+PLATFORM_ID="platform:el9"
+PRETTY_NAME="AlmaLinux 9.6 (Sage Margay)"
+ANSI_COLOR="0;34"
+LOGO="fedora-logo-icon"
+CPE_NAME="cpe:/o:almalinux:almalinux:9::baseos"
+HOME_URL="https://almalinux.org/"
+DOCUMENTATION_URL="https://wiki.almalinux.org/"
+BUG_REPORT_URL="https://bugs.almalinux.org/"
+
+ALMALINUX_MANTISBT_PROJECT="AlmaLinux-9"
+ALMALINUX_MANTISBT_PROJECT_VERSION="9.6"
+REDHAT_SUPPORT_PRODUCT="AlmaLinux"
+REDHAT_SUPPORT_PRODUCT_VERSION="9.6"
+SUPPORT_END=2032-06-01
+
+glibc 2.37
+ldd (Gentoo 2.37-r3 (patchset 5)) 2.37
+
+Architecture:                         x86_64
+CPU op-mode(s):                       32-bit, 64-bit
+Address sizes:                        52 bits physical, 57 bits virtual
+Byte Order:                           Little Endian
+CPU(s):                               32
+On-line CPU(s) list:                  0-31
+Vendor ID:                            AuthenticAMD
+Model name:                           AMD EPYC 9135 16-Core Processor
+CPU family:                           26
+Model:                                2
+Thread(s) per core:                   1
+Core(s) per socket:                   16
+Socket(s):                            2
+Stepping:                             1
+BogoMIPS:                             7289.65
+Flags:                                fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good amd_lbr_v2 nopl xtopology nonstop_tsc cpuid extd_apicid aperfmperf rapl pni pclmulqdq monitor ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt aes xsave avx f16c rdrand lahf_lm cmp_legacy svm extapic cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw ibs skinit wdt tce topoext perfctr_core perfctr_nb bpext perfctr_llc mwaitx cpb cat_l3 cdp_l3 hw_pstate ssbd mba perfmon_v2 ibrs ibpb stibp ibrs_enhanced vmmcall fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid cqm rdt_a avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves cqm_llc cqm_occup_llc cqm_mbm_total cqm_mbm_local avx_vnni avx512_bf16 clzero irperf xsaveerptr rdpru wbnoinvd amd_ppin cppc arat npt lbrv svm_lock nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold avic v_vmsave_vmload vgif x2avic v_spec_ctrl vnmi avx512vbmi umip pku ospke avx512_vbmi2 gfni vaes vpclmulqdq avx512_vnni avx512_bitalg avx512_vpopcntdq la57 rdpid bus_lock_detect movdiri movdir64b overflow_recov succor smca fsrm avx512_vp2intersect flush_l1d debug_swap amd_lbr_pmc_freeze
+Virtualization:                       AMD-V
+L1d cache:                            1.5 MiB (32 instances)
+L1i cache:                            1 MiB (32 instances)
+L2 cache:                             32 MiB (32 instances)
+L3 cache:                             128 MiB (8 instances)
+NUMA node(s):                         2
+NUMA node0 CPU(s):                    0-15
+NUMA node1 CPU(s):                    16-31
+Vulnerability Gather data sampling:   Not affected
+Vulnerability Itlb multihit:          Not affected
+Vulnerability L1tf:                   Not affected
+Vulnerability Mds:                    Not affected
+Vulnerability Meltdown:               Not affected
+Vulnerability Mmio stale data:        Not affected
+Vulnerability Reg file data sampling: Not affected
+Vulnerability Retbleed:               Not affected
+Vulnerability Spec rstack overflow:   Not affected
+Vulnerability Spec store bypass:      Mitigation; Speculative Store Bypass disabled via prctl
+Vulnerability Spectre v1:             Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+Vulnerability Spectre v2:             Mitigation; Enhanced / Automatic IBRS; IBPB conditional; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected
+Vulnerability Srbds:                  Not affected
+Vulnerability Tsx async abort:        Not affected
+
+32
+
+               total        used        free      shared  buff/cache   available
+Mem:           377Gi       206Gi        28Gi        26Gi       142Gi       142Gi
+Swap:             0B          0B          0B
+
+Filesystem                                                                                   Size  Used Avail Use% Mounted on
+172.25.2.100@o2ib1,172.25.3.100@o2ib1:172.25.2.101@o2ib1,172.25.3.101@o2ib1:/firlfs/scratch   19T  4.3G   19T   1% /scratch
+
+================================================================
+SLURM / MODULES
+================================================================
+SLURM_MPI_TYPE=pmix
+
+PARTITION CPUS MEMORY GRES TIMELIMIT NODES NODELIST
+cpubase_interac 192 768000 (null) 3:00:00 4 fc[30669-30672]
+cpubase_bynode_b6 192 768000 (null) 28-00:00:00 72 fc[20101-20112,20554-20572,20601-20641]
+cpubase_bynode_b5 192 768000 (null) 7-00:00:00 398 fc[20101-20172,20201-20241,20554-20572,20601-20672,30101-30172,30201-30272,30301-30350]
+cpubase_bynode_b4 192 768000 (null) 3-00:00:00 539 fc[20101-20172,20201-20272,20301-20315,20554-20572,20601-20672,30101-30172,30201-30272,30301-30372,30401-30472,30501]
+cpubase_bynode_b3 192 768000 (null) 1-00:00:00 683 fc[20101-20172,20201-20272,20301-20372,20401-20435,20554-20572,20601-20672,30101-30172,30201-30272,30301-30372,30401-30472,30501-30553]
+cpubase_bynode_b2 192 768000 (null) 12:00:00 860 fc[20101-20172,20201-20272,20301-20372,20401-20472,20501-20572,20601-20672,30101-30172,30201-30272,30301-30372,30401-30472,30501-30572,30601-30668]
+cpubase_bynode_b1* 192 768000 (null) 3:00:00 860 fc[20101-20172,20201-20272,20301-20372,20401-20472,20501-20572,20601-20672,30101-30172,30201-30272,30301-30372,30401-30472,30501-30572,30601-30668]
+cpubase_bycore_b6 192 768000 (null) 28-00:00:00 60 fc[20554-20572,20601-20641]
+cpubase_bycore_b5 192 768000 (null) 7-00:00:00 285 fc[20554-20572,20601-20672,30101-30172,30201-30272,30301-30350]
+cpubase_bycore_b4 192 768000 (null) 3-00:00:00 380 fc[20554-20572,20601-20672,30101-30172,30201-30272,30301-30372,30401-30472,30501]
+cpubase_bycore_b3 192 768000 (null) 1-00:00:00 432 fc[20554-20572,20601-20672,30101-30172,30201-30272,30301-30372,30401-30472,30501-30553]
+cpubase_bycore_b2 192 768000 (null) 12:00:00 519 fc[20554-20572,20601-20672,30101-30172,30201-30272,30301-30372,30401-30472,30501-30572,30601-30668]
+cpubase_bycore_b1 192 768000 (null) 3:00:00 519 fc[20554-20572,20601-20672,30101-30172,30201-30272,30301-30372,30401-30472,30501-30572,30601-30668]
+cpularge_bynode_b6 192 6144000 (null) 28-00:00:00 1 fb21804
+cpularge_bynode_b5 192 6144000 (null) 7-00:00:00 2 fb[21804-21805]
+cpularge_bynode_b4 192 6144000 (null) 3-00:00:00 4 fb[21801,21804-21806]
+cpularge_bynode_b3 192 6144000 (null) 1-00:00:00 6 fb[21801-21802,21804-21807]
+cpularge_bynode_b2 192 6144000 (null) 12:00:00 8 fb[21801-21808]
+cpularge_bynode_b1 192 6144000 (null) 3:00:00 8 fb[21801-21808]
+cpularge_bycore_b6 192 6144000 (null) 28-00:00:00 1 fb21804
+cpularge_bycore_b5 192 6144000 (null) 7-00:00:00 2 fb[21804-21805]
+cpularge_bycore_b4 192 6144000 (null) 3-00:00:00 3 fb[21804-21806]
+cpularge_bycore_b3 192 6144000 (null) 1-00:00:00 4 fb[21804-21807]
+cpularge_bycore_b2 192 6144000 (null) 12:00:00 5 fb[21804-21808]
+cpularge_bycore_b1 192 6144000 (null) 3:00:00 5 fb[21804-21808]
+gpubase_interac 48 1152000 gpu:nvidia_h100_80gb_hbm3_3g.40gb:4(S:2-3),gpu:nvidia_h100_80gb_hbm3_2g.20gb:4(S:2-3),gpu:nvidia_h100_80gb_hbm3_1g.10gb:8(S:2-3) 3:00:00 1 fc11020
+gpubase_bynode_b5 48 1152000 gpu:h100:4(S:2-3) 7-00:00:00 26 fc[10101-10112,10403-10416]
+gpubase_bynode_b4 48 1152000 gpu:h100:4(S:2-3) 3-00:00:00 40 fc[10101-10118,10403-10420,10501-10504]
+gpubase_bynode_b3 48 1152000 gpu:h100:4(S:0) 1-00:00:00 1 fc10203
+gpubase_bynode_b3 48 1152000 gpu:h100:4(S:2-3) 1-00:00:00 61 fc[10101-10120,10201-10202,10204-10211,10403-10420,10501-10513]
+gpubase_bynode_b2 48 1152000 gpu:h100:4(S:0) 12:00:00 1 fc10203
+gpubase_bynode_b2 48 1152000 gpu:h100:4(S:2-3) 12:00:00 79 fc[10101-10120,10201-10202,10204-10220,10401-10420,10501-10520]
+gpubase_bynode_b1 48 1152000 gpu:h100:4(S:0) 3:00:00 1 fc10203
+gpubase_bynode_b1 48 1152000 gpu:h100:4(S:2-3) 3:00:00 79 fc[10101-10120,10201-10202,10204-10220,10401-10420,10501-10520]
+gpubase_bygpu_b5 48 1152000 gpu:h100:4(S:2-3) 7-00:00:00 14 fc[10403-10416]
+gpubase_bygpu_b5 48 1152000 gpu:nvidia_h100_80gb_hbm3_3g.40gb:4(S:2-3),gpu:nvidia_h100_80gb_hbm3_2g.20gb:4(S:2-3),gpu:nvidia_h100_80gb_hbm3_1g.10gb:8(S:2-3) 7-00:00:00 27 fc[10601-10620,10701-10707]
+gpubase_bygpu_b4 48 1152000 gpu:h100:4(S:2-3) 3-00:00:00 22 fc[10403-10420,10501-10504]
+gpubase_bygpu_b4 48 1152000 gpu:nvidia_h100_80gb_hbm3_3g.40gb:4(S:0),gpu:nvidia_h100_80gb_hbm3_2g.20gb:4(S:0),gpu:nvidia_h100_80gb_hbm3_1g.10gb:8(S:0) 3-00:00:00 1 fc10715
+gpubase_bygpu_b4 48 1152000 gpu:nvidia_h100_80gb_hbm3_3g.40gb:4(S:2-3),gpu:nvidia_h100_80gb_hbm3_2g.20gb:4(S:2-3),gpu:nvidia_h100_80gb_hbm3_1g.10gb:8(S:2-3) 3-00:00:00 42 fc[10601-10620,10701-10714,10716-10720,10901-10903]
+gpubase_bygpu_b3 48 1152000 gpu:h100:4(S:2-3) 1-00:00:00 31 fc[10403-10420,10501-10513]
+gpubase_bygpu_b3 48 1152000 gpu:nvidia_h100_80gb_hbm3_3g.40gb:4(S:0),gpu:nvidia_h100_80gb_hbm3_2g.20gb:4(S:0),gpu:nvidia_h100_80gb_hbm3_1g.10gb:8(S:0) 1-00:00:00 1 fc10715
+gpubase_bygpu_b3 48 1152000 gpu:nvidia_h100_80gb_hbm3_3g.40gb:4(S:2-3),gpu:nvidia_h100_80gb_hbm3_2g.20gb:4(S:2-3),gpu:nvidia_h100_80gb_hbm3_1g.10gb:8(S:2-3) 1-00:00:00 62 fc[10601-10620,10701-10714,10716-10720,10901-10920,11001-11003]
+gpubase_bygpu_b2 48 1152000 gpu:h100:4(S:2-3) 12:00:00 38 fc[10403-10420,10501-10520]
+gpubase_bygpu_b2 48 1152000 gpu:nvidia_h100_80gb_hbm3_3g.40gb:4(S:0),gpu:nvidia_h100_80gb_hbm3_2g.20gb:4(S:0),gpu:nvidia_h100_80gb_hbm3_1g.10gb:8(S:0) 12:00:00 2 fc[10715,11019]
+gpubase_bygpu_b2 48 1152000 gpu:nvidia_h100_80gb_hbm3_3g.40gb:4(S:2-3),gpu:nvidia_h100_80gb_hbm3_2g.20gb:4(S:2-3),gpu:nvidia_h100_80gb_hbm3_1g.10gb:8(S:2-3) 12:00:00 77 fc[10601-10620,10701-10714,10716-10720,10901-10920,11001-11018]
+gpubase_bygpu_b1 48 1152000 gpu:h100:4(S:2-3) 3:00:00 38 fc[10403-10420,10501-10520]
+gpubase_bygpu_b1 48 1152000 gpu:nvidia_h100_80gb_hbm3_3g.40gb:4(S:0),gpu:nvidia_h100_80gb_hbm3_2g.20gb:4(S:0),gpu:nvidia_h100_80gb_hbm3_1g.10gb:8(S:0) 3:00:00 2 fc[10715,11019]
+gpubase_bygpu_b1 48 1152000 gpu:nvidia_h100_80gb_hbm3_3g.40gb:4(S:2-3),gpu:nvidia_h100_80gb_hbm3_2g.20gb:4(S:2-3),gpu:nvidia_h100_80gb_hbm3_1g.10gb:8(S:2-3) 3:00:00 77 fc[10601-10620,10701-10714,10716-10720,10901-10920,11001-11018]
+cpubackfill 192 768000 (null) 1-00:00:00 683 fc[20101-20172,20201-20272,20301-20372,20401-20435,20554-20572,20601-20672,30101-30172,30201-30272,30301-30372,30401-30472,30501-30553]
+c12hbackfill 192 768000 (null) 12:00:00 860 fc[20101-20172,20201-20272,20301-20372,20401-20472,20501-20572,20601-20672,30101-30172,30201-30272,30301-30372,30401-30472,30501-30572,30601-30668]
+gpubackfill 48 1152000 gpu:h100:4(S:0) 1-00:00:00 1 fc10203
+gpubackfill 48 1152000 gpu:nvidia_h100_80gb_hbm3_3g.40gb:4(S:0),gpu:nvidia_h100_80gb_hbm3_2g.20gb:4(S:0),gpu:nvidia_h100_80gb_hbm3_1g.10gb:8(S:0) 1-00:00:00 1 fc10715
+gpubackfill 48 1152000 gpu:nvidia_h100_80gb_hbm3_3g.40gb:4(S:2-3),gpu:nvidia_h100_80gb_hbm3_2g.20gb:4(S:2-3),gpu:nvidia_h100_80gb_hbm3_1g.10gb:8(S:2-3) 1-00:00:00 62 fc[10601-10620,10701-10714,10716-10720,10901-10920,11001-11003]
+gpubackfill 48 1152000 gpu:h100:4(S:2-3) 1-00:00:00 61 fc[10101-10120,10201-10202,10204-10211,10403-10420,10501-10513]
+cpupreempt 192 768000 (null) 122-00:00:00 860 fc[20101-20172,20201-20272,20301-20372,20401-20472,20501-20572,20601-20672,30101-30172,30201-30272,30301-30372,30401-30472,30501-30572,30601-30668]
+gpupreempt 48 1152000 gpu:h100:4(S:0) 122-00:00:00 1 fc10203
+gpupreempt 48 1152000 gpu:nvidia_h100_80gb_hbm3_3g.40gb:4(S:0),gpu:nvidia_h100_80gb_hbm3_2g.20gb:4(S:0),gpu:nvidia_h100_80gb_hbm3_1g.10gb:8(S:0) 122-00:00:00 2 fc[10715,11019]
+gpupreempt 48 1152000 gpu:nvidia_h100_80gb_hbm3_3g.40gb:4(S:2-3),gpu:nvidia_h100_80gb_hbm3_2g.20gb:4(S:2-3),gpu:nvidia_h100_80gb_hbm3_1g.10gb:8(S:2-3) 122-00:00:00 78 fc[10601-10620,10701-10714,10716-10720,10901-10920,11001-11018,11020]
+gpupreempt 48 1152000 gpu:h100:4(S:2-3) 122-00:00:00 79 fc[10101-10120,10201-10202,10204-10220,10401-10420,10501-10520]
+
+--- module --version ---
+
+Modules based on Lua: Version 8.7.47 2024-07-22 10:04 -04:00
+    by Robert McLay mclay@tacc.utexas.edu
+
+
+--- module list ---
+
+Currently Loaded Modules:
+  1) CCconfig            4) gcc/12.3    (t)   7) libfabric/1.18.0  10) openmpi/4.1.5   (m)  13) aocl-lapack/5.1
+  2) gentoo/2023   (S)   5) hwloc/2.9.1       8) pmix/4.2.4        11) flexiblas/3.3.1      14) StdEnv/2023     (S)
+  3) gcccore/.12.3 (H)   6) ucx/1.14.1        9) ucc/1.2.0         12) aocl-blas/5.1        15) mii/1.1.2
+
+  Where:
+   H:  Hidden Module
+   S:  Module is Sticky, requires --force to unload or purge
+   m:  MPI implementations / Implémentations MPI
+   t:  Tools for development / Outils de développement
+
+ 
+
+
+--- module -t avail python ---
+/cvmfs/soft.computecanada.ca/easybuild/modules/2023/x86-64-v4/Compiler/gcccore:
+ipython-kernel/3.10
+ipython-kernel/3.11
+ipython-kernel/3.12
+ipython-kernel/3.13
+ipython-kernel/3.14
+python-build-bundle/2023b
+python-build-bundle/2024a
+python-build-bundle/2025a
+python-build-bundle/2025b
+python-build-bundle/2026a
+python/3.10(@python/3.10.13)
+python/3.10.13
+python/3.11(@python/3.11.5)
+python/3.11.5
+python/3.12(@python/3.12.4)
+python/3.12.4
+python/3.13(@python/3.13.2)
+python/3.13.2
+python/3.14.2
+
+--- module -t avail gcc ---
+/opt/software/modulefiles:
+dirac-gcc/25.0
+/cvmfs/soft.computecanada.ca/easybuild/modules/2023/x86-64-v3/Core:
+gcc/12.3
+gcc/13.3
+gcc/14.3
+
+--- module -t avail cuda ---
+/cvmfs/soft.computecanada.ca/easybuild/modules/2023/x86-64-v4/MPI/gcc12/openmpi4:
+cuda/12.2
+cuda/12.6
+/cvmfs/soft.computecanada.ca/easybuild/modules/2023/x86-64-v4/Compiler/gcc12:
+cuda/12.2
+cuda/12.6
+
+================================================================
+TOOLCHAIN PATHS
+================================================================
+python     -> /cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/bin/python
+python3    -> /cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/bin/python3
+pip        -> /usr/bin/pip
+pip3       -> /usr/bin/pip3
+gcc        -> /cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/x86_64-pc-linux-gnu/gcc-bin/12/gcc
+g++        -> /cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/x86_64-pc-linux-gnu/gcc-bin/12/g++
+make       -> /cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/bin/make
+cmake      -> /cvmfs/soft.computecanada.ca/custom/bin/cmake
+git        -> /cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/bin/git
+curl       -> /cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/bin/curl
+wget       -> /cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/bin/wget
+
+================================================================
+PYTHON CORE
+================================================================
+sys.executable : /cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/lib/python-exec/python3.11/python3
+sys.version    : 3.11.4 (main, Nov  4 2023, 03:43:13) [GCC 12.3.1 20230526]
+implementation : CPython
+platform       : Linux-5.14.0-570.22.1.el9_6.x86_64-x86_64-AMD_EPYC_9135_16-Core_Processor-with-glibc2.37
+machine        : x86_64
+SOABI          : cpython-311-x86_64-linux-gnu
+EXT_SUFFIX     : .cpython-311-x86_64-linux-gnu.so
+OpenSSL        : OpenSSL 3.0.9 30 May 2023
+PYTHONPATH     : /cvmfs/soft.computecanada.ca/custom/python/site-packages
+module_status  : {
+  "venv": true,
+  "ensurepip": true,
+  "ssl": true,
+  "sqlite3": true,
+  "bz2": true,
+  "lzma": true,
+  "pip": false,
+  "setuptools": true,
+  "wheel": true,
+  "packaging": true
+}
+
+================================================================
+PIP INFO
+================================================================
+
+
+================================================================
+TEMP VENV SMOKE TEST
+================================================================
+pip 23.2.1 from /scratch/rsadve1/Novel_GRAND/probe_outputs/.tmp_venv_probe/lib/python3.11/site-packages/pip (python 3.11)
+tmp_venv_python : /scratch/rsadve1/Novel_GRAND/probe_outputs/.tmp_venv_probe/bin/python
+tmp_venv_ssl    : OpenSSL 3.0.9 30 May 2023
+Temporary venv creation SUCCEEDED
+
+================================================================
+PYPI / WHEEL ACCESS
+================================================================
+sionna           latest=2.0.1
+sionna-no-rt     latest=2.0.1
+torch            latest=2.11.0
+tensorflow       latest=2.21.0
+tensorflow-cpu   latest=2.21.0
+URL OK   https://download.pytorch.org/whl/cpu/
+
+================================================================
+PIP DRY-RUN RESOLVER
+================================================================
+pip on this system does not support --dry-run
+
+================================================================
+ENVIRONMENT VARIABLES OF INTEREST
+================================================================
+CPATH=/cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/aocl-lapackcore/5.1/include:/cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v3/Core/aocl-blascore/5.1/include:/cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v3/Core/flexiblascore/3.3.1/include/flexiblas:/cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v3/Core/flexiblascore/3.3.1/include:/cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcc12/openmpi/4.1.5/include:/cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/ucc/1.2.0/include:/cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/pmix/4.2.4/include:/cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/libfabric/1.18.0/include:/cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/ucx/1.14.1/include:/cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/hwloc/2.9.1/include
+LIBRARY_PATH=/cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/aocl-lapackcore/5.1/lib:/cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v3/Core/aocl-blascore/5.1/lib:/cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v3/Core/flexiblascore/3.3.1/lib:/cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcc12/openmpi/4.1.5/lib:/cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/ucc/1.2.0/lib:/cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/pmix/4.2.4/lib:/cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/libfabric/1.18.0/lib:/cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/ucx/1.14.1/lib:/cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/hwloc/2.9.1/lib
