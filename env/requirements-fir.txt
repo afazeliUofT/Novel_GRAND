@@ -1,0 +1,9 @@
+# torch is installed separately from the official CPU wheel index
+sionna-no-rt==2.0.1
+
+# lightweight utilities needed by the simulation package I will give you next
+pandas==2.2.3
+PyYAML==6.0.2
+tqdm==4.66.5
+psutil==6.1.0
+matplotlib==3.9.2
