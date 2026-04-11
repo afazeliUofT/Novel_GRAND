@@ -1,0 +1,5 @@
+Metadata-Version: 2.4
+Name: novel-grand
+Version: 0.1.1
+Summary: Sionna-based 5G NR LDPC + TAGS-GRAND-Lite research pipeline
+Requires-Python: >=3.11

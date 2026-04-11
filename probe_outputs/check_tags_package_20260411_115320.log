@@ -1,0 +1,17 @@
+[info] repo_dir=/scratch/rsadve1/Novel_GRAND
+[info] timestamp=2026-04-11T11:53:20-07:00
+[info] running smoke test
+[effective-pcm] building cache for k=1088 n=1344 n_ldpc=3536 ...
+[effective-pcm] wrote /scratch/rsadve1/Novel_GRAND/outputs/_effective_code_cache/ldpc_eff_pcm_k1088_n1344_nldpc3536_bps4_bgbg1_z52.npz
+{
+  "status": "ok",
+  "k": 1088,
+  "n": 1344,
+  "bits_per_symbol": 4,
+  "channel_mode": "tdl",
+  "ebn0_db": 6.0,
+  "legacy_success": false,
+  "stop_iteration": 8,
+  "final_syndrome_weight": 129,
+  "tx_codeword_exact_syndrome_weight": 0
+}
