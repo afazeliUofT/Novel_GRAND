@@ -1,0 +1,25 @@
+python_executable: /scratch/rsadve1/Novel_GRAND/.venv-fir/bin/python
+python_version: 3.11.4 (main, Nov  4 2023, 03:43:13) [GCC 12.3.1 20230526]
+platform: Linux-5.14.0-570.22.1.el9_6.x86_64-x86_64-AMD_EPYC_9135_16-Core_Processor-with-glibc2.37
+cwd: /scratch/rsadve1/Novel_GRAND
+PYTHONPATH: None
+torch_version: 2.9.1+cpu
+sionna_version: 2.0.1
+torch_cuda_is_available: False
+torch_num_threads: 32
+torch_num_interop_threads: 32
+torch_smoke_shape: (256, 256)
+torch_smoke_abs_mean: 13.852327346801758
+import_timings_sec: {
+  "sionna.phy.channel.tr38901.cdl": 0.0,
+  "sionna.phy.channel.tr38901.tdl": 0.0,
+  "sionna.phy.channel.tr38901.uma": 0.0,
+  "sionna.phy.channel.tr38901.umi": 0.0,
+  "sionna.phy.fec.ldpc.decoding": 0.0,
+  "sionna.phy.fec.ldpc.encoding": 4.497,
+  "sionna.phy.nr.pusch_receiver": 0.0,
+  "sionna.phy.nr.pusch_transmitter": 0.0,
+  "sionna.phy.nr.tb_decoder": 0.0,
+  "sionna.phy.nr.tb_encoder": 0.0
+}
+STATUS: OK

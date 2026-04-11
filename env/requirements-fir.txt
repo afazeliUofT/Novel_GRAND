@@ -1,9 +1,14 @@
-# torch is installed separately from the official CPU wheel index
-sionna-no-rt==2.0.1
+# Base runtime deps for Sionna 2.0.1 on FIR.
+# torch is installed separately from the official CPU wheel index.
 
-# lightweight utilities needed by the simulation package I will give you next
+numpy==2.2.6
+scipy==1.15.3
+h5py==3.15.1
+importlib-resources==6.5.2
+matplotlib==3.10.8
+
+# Utilities needed by the project
 pandas==2.2.3
 PyYAML==6.0.2
 tqdm==4.66.5
 psutil==6.1.0
-matplotlib==3.9.2
