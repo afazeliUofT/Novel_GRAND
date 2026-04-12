@@ -14,6 +14,7 @@ from novel_grand.sim.aggregate import load_frame_rows, summarize_frames
 BOOL_COLS = ["legacy_detected_failure", "success_exact", "valid_codeword", "undetected_error"]
 
 
+
 def _normalize_boolish_series(s: pd.Series) -> pd.Series:
     mapping = {
         True: 1,
@@ -26,6 +27,7 @@ def _normalize_boolish_series(s: pd.Series) -> pd.Series:
         0: 0,
     }
     return s.map(mapping).fillna(0).astype(int)
+
 
 
 def _line_plot(df: pd.DataFrame, x: str, y: str, out_path: Path, ylabel: str, include_ldpc: bool = True) -> None:
@@ -44,6 +46,7 @@ def _line_plot(df: pd.DataFrame, x: str, y: str, out_path: Path, ylabel: str, in
     plt.close()
 
 
+
 def _line_plot_multi(df: pd.DataFrame, x: str, y_cols: list[str], out_path: Path, ylabel: str) -> None:
     plt.figure()
     gg = df.sort_values(x)
@@ -58,6 +61,7 @@ def _line_plot_multi(df: pd.DataFrame, x: str, y_cols: list[str], out_path: Path
     plt.tight_layout()
     plt.savefig(out_path, dpi=180)
     plt.close()
+
 
 
 def _gain_over_ldpc(df_summary: pd.DataFrame) -> pd.DataFrame:
@@ -78,6 +82,40 @@ def _gain_over_ldpc(df_summary: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+
+def _gap_to_oracle(df_summary: pd.DataFrame) -> pd.DataFrame:
+    rows = []
+    for ebn0_db, g in df_summary.groupby("ebn0_db", sort=True):
+        oracle = g[g["decoder"] == "oracle_best_llr"]
+        if oracle.empty:
+            continue
+        oracle = oracle.iloc[0]
+        for _, row in g.iterrows():
+            rows.append(
+                {
+                    "ebn0_db": float(ebn0_db),
+                    "decoder": str(row["decoder"]),
+                    "net_success_gap_to_oracle": float(oracle["net_exact_success_rate"] - row["net_exact_success_rate"]),
+                    "selected_snapshot_gap_to_oracle": float(row["avg_selected_snapshot"] - oracle["avg_selected_snapshot"]),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+
+def _query_efficiency(df_gain: pd.DataFrame, df_summary: pd.DataFrame) -> pd.DataFrame:
+    merged = df_gain.merge(
+        df_summary[["ebn0_db", "decoder", "avg_queries_per_original_frame"]],
+        on=["ebn0_db", "decoder"],
+        how="left",
+    )
+    q = merged["avg_queries_per_original_frame"].replace(0.0, np.nan)
+    merged["net_success_gain_per_1000_queries"] = 1000.0 * merged["net_success_gain_over_ldpc"] / q
+    merged["net_success_gain_per_1000_queries"] = merged["net_success_gain_per_1000_queries"].fillna(0.0)
+    return merged
+
+
+
 def _decoder_budget(cfg: dict, decoder: str) -> int:
     if decoder == "ldpc_only":
         return 0
@@ -87,6 +125,7 @@ def _decoder_budget(cfg: dict, decoder: str) -> int:
         q_fb = int(cfg["grand"].get("fallback_bonus_cap", max(1000, q_main // 2)))
         return q_main + q_rescue + q_fb
     return q_main
+
 
 
 def _query_cap_hit_rates(frame_df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
@@ -107,6 +146,7 @@ def _query_cap_hit_rates(frame_df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+
 def _primitive_usage(frame_df: pd.DataFrame) -> pd.DataFrame:
     rows = []
     if frame_df.empty:
@@ -125,7 +165,7 @@ def _primitive_usage(frame_df: pd.DataFrame) -> pd.DataFrame:
             group += int("group" in token_set)
             guard += int("guard_final_llr" in token_set)
             fallback += int("fallback_best_syndrome_llr" in token_set)
-            ai += int("ai_rescue" in token_set)
+            ai += int(any(tok.startswith("ai_") for tok in token_set))
         rows.append(
             {
                 "ebn0_db": float(ebn0_db),
@@ -140,6 +180,7 @@ def _primitive_usage(frame_df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+
 def _tags_stage_contribution(frame_df: pd.DataFrame) -> pd.DataFrame:
     g_all = frame_df[frame_df["decoder"] == "tags_grand_lite"].copy()
     if g_all.empty:
@@ -149,8 +190,8 @@ def _tags_stage_contribution(frame_df: pd.DataFrame) -> pd.DataFrame:
         n = len(g)
         kinds = g["primitive_kinds"].fillna("").astype(str)
         success = g["success_exact"].astype(bool)
-        guard_success = (success & kinds.str.contains("guard_final_llr") & ~kinds.str.contains("ai_rescue") & ~kinds.str.contains("fallback_best_syndrome_llr")).sum()
-        ai_success = (success & kinds.str.contains("ai_rescue") & ~kinds.str.contains("fallback_best_syndrome_llr")).sum()
+        guard_success = (success & kinds.str.contains("guard_final_llr") & ~kinds.str.contains("ai_") & ~kinds.str.contains("fallback_best_syndrome_llr")).sum()
+        ai_success = (success & kinds.str.contains("ai_") & ~kinds.str.contains("fallback_best_syndrome_llr")).sum()
         fallback_success = (success & kinds.str.contains("fallback_best_syndrome_llr")).sum()
         fail = n - (guard_success + ai_success + fallback_success)
         rows.append(
@@ -163,6 +204,28 @@ def _tags_stage_contribution(frame_df: pd.DataFrame) -> pd.DataFrame:
             }
         )
     return pd.DataFrame(rows)
+
+
+
+def _tags_stage_visit(frame_df: pd.DataFrame) -> pd.DataFrame:
+    g_all = frame_df[frame_df["decoder"] == "tags_grand_lite"].copy()
+    if g_all.empty:
+        return pd.DataFrame()
+    rows = []
+    for ebn0_db, g in g_all.groupby("ebn0_db", sort=True):
+        n = len(g)
+        kinds = g["primitive_kinds"].fillna("").astype(str)
+        rows.append(
+            {
+                "ebn0_db": float(ebn0_db),
+                "guard_visit_rate": float(kinds.str.contains("guard_final_llr").mean()),
+                "ai_visit_rate": float(kinds.str.contains("ai_").mean()),
+                "fallback_visit_rate": float(kinds.str.contains("fallback_best_syndrome_llr").mean()),
+                "n_frames": int(n),
+            }
+        )
+    return pd.DataFrame(rows)
+
 
 
 def _worker_diversity(frame_df: pd.DataFrame) -> pd.DataFrame:
@@ -182,7 +245,7 @@ def _worker_diversity(frame_df: pd.DataFrame) -> pd.DataFrame:
     ]
     for (ebn0_db, decoder), g in frame_df.groupby(["ebn0_db", "decoder"], sort=True):
         unique_counts = []
-        for frame_idx, gf in g.groupby("frame_idx", sort=True):
+        for _, gf in g.groupby("frame_idx", sort=True):
             sig = gf[sig_cols].astype(str).agg("|".join, axis=1)
             unique_counts.append(sig.nunique())
         unique_counts = np.asarray(unique_counts, dtype=float)
@@ -199,7 +262,15 @@ def _worker_diversity(frame_df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def _write_markdown(df_summary: pd.DataFrame, df_stage: pd.DataFrame, df_div: pd.DataFrame, out_dir: Path) -> None:
+
+def _write_markdown(
+    df_summary: pd.DataFrame,
+    df_stage: pd.DataFrame,
+    df_stage_visit: pd.DataFrame,
+    df_div: pd.DataFrame,
+    df_qhit: pd.DataFrame,
+    out_dir: Path,
+) -> None:
     lines = []
     lines.append("# TAGS-GRAND report")
     lines.append("")
@@ -221,23 +292,47 @@ def _write_markdown(df_summary: pd.DataFrame, df_stage: pd.DataFrame, df_div: pd
             lines.append(
                 f"- `Eb/N0={row['ebn0_db']:.2f} dB`: guard `{row['guard_success_rate']:.6f}`, ai `{row['ai_success_rate']:.6f}`, fallback `{row['fallback_success_rate']:.6f}`, fail `{row['failure_rate']:.6f}`."
             )
+    if not df_stage_visit.empty:
+        lines.append("")
+        lines.append("## TAGS stage visit rates")
+        for _, row in df_stage_visit.sort_values("ebn0_db").iterrows():
+            lines.append(
+                f"- `Eb/N0={row['ebn0_db']:.2f} dB`: guard visited `{row['guard_visit_rate']:.6f}`, ai visited `{row['ai_visit_rate']:.6f}`, fallback visited `{row['fallback_visit_rate']:.6f}`."
+            )
+    warnings = []
     if not df_div.empty:
-        warn = df_div[(df_div["decoder"] == "ldpc_only") & (df_div["perfect_duplication_rate"] > 0.95)]
-        if not warn.empty:
-            lines.append("")
-            lines.append("## Warning")
-            lines.append("High worker-duplication was detected. This usually indicates Monte Carlo streams were not independent across workers.")
+        warn_dup = df_div[(df_div["decoder"] == "ldpc_only") & (df_div["perfect_duplication_rate"] > 0.50)]
+        if not warn_dup.empty:
+            warnings.append("High worker duplication was detected. Monte Carlo streams may not be independent across workers.")
+    if not df_stage.empty and float(df_stage["ai_success_rate"].max()) <= 0.0:
+        warnings.append("The AI rescue stage contributed zero exact rescues in this run.")
+    if not df_qhit.empty:
+        hi = df_qhit[(df_qhit["decoder"] != "ldpc_only") & (df_qhit["query_cap_hit_rate"] >= 0.75)]
+        if not hi.empty:
+            warnings.append("At least one rescue decoder hit its query cap on 75%+ of invoked frames, indicating saturation.")
+    if warnings:
+        lines.append("")
+        lines.append("## Warnings")
+        for w in warnings:
+            lines.append(f"- {w}")
     lines.append("")
     lines.append("## Files")
     for name in [
         "summary_eval.csv",
+        "summary.md",
         "frame_rows_all.csv",
         "net_exact_success_rate_vs_ebn0.png",
         "net_frame_error_rate_vs_ebn0.png",
         "conditional_rescue_success_rate_vs_ebn0.png",
         "avg_queries_on_invoked_frames_vs_ebn0.png",
         "avg_queries_per_original_frame_vs_ebn0.png",
+        "net_success_gain_over_ldpc.csv",
         "net_success_gain_over_ldpc_vs_ebn0.png",
+        "gap_to_oracle_summary.csv",
+        "net_gap_to_oracle_vs_ebn0.png",
+        "snapshot_gap_to_oracle_vs_ebn0.png",
+        "query_efficiency_summary.csv",
+        "query_efficiency_vs_ebn0.png",
         "avg_selected_snapshot_vs_ebn0.png",
         "avg_frontier_peak_vs_ebn0.png",
         "query_cap_hit_rate_vs_ebn0.png",
@@ -245,11 +340,16 @@ def _write_markdown(df_summary: pd.DataFrame, df_stage: pd.DataFrame, df_div: pd
         "query_cap_hit_summary.csv",
         "tags_stage_contribution_summary.csv",
         "tags_stage_contribution_vs_ebn0.png",
+        "tags_stage_visit_summary.csv",
+        "tags_stage_visit_vs_ebn0.png",
         "worker_diversity_summary.csv",
         "worker_diversity_vs_ebn0.png",
     ]:
         lines.append(f"- `{name}`")
-    PLACEHOLDER
+
+    out_path = out_dir / "summary.md"
+    out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
 
 
 def main() -> None:
@@ -285,12 +385,18 @@ def main() -> None:
 
     df_gain = _gain_over_ldpc(df_summary)
     df_gain.to_csv(report_dir / "net_success_gain_over_ldpc.csv", index=False)
+    df_gap = _gap_to_oracle(df_summary)
+    df_gap.to_csv(report_dir / "gap_to_oracle_summary.csv", index=False)
+    df_eff = _query_efficiency(df_gain, df_summary)
+    df_eff.to_csv(report_dir / "query_efficiency_summary.csv", index=False)
     df_qhit = _query_cap_hit_rates(frame_df, cfg)
     df_qhit.to_csv(report_dir / "query_cap_hit_summary.csv", index=False)
     df_pusage = _primitive_usage(frame_df)
     df_pusage.to_csv(report_dir / "primitive_usage_summary.csv", index=False)
     df_stage = _tags_stage_contribution(frame_df)
     df_stage.to_csv(report_dir / "tags_stage_contribution_summary.csv", index=False)
+    df_stage_visit = _tags_stage_visit(frame_df)
+    df_stage_visit.to_csv(report_dir / "tags_stage_visit_summary.csv", index=False)
     df_div = _worker_diversity(frame_df)
     df_div.to_csv(report_dir / "worker_diversity_summary.csv", index=False)
 
@@ -300,16 +406,23 @@ def main() -> None:
     _line_plot(df_summary, "ebn0_db", "avg_queries_on_invoked_frames", report_dir / "avg_queries_on_invoked_frames_vs_ebn0.png", "Avg queries on invoked frames", include_ldpc=False)
     _line_plot(df_summary, "ebn0_db", "avg_queries_per_original_frame", report_dir / "avg_queries_per_original_frame_vs_ebn0.png", "Avg queries per original frame", include_ldpc=False)
     _line_plot(df_gain, "ebn0_db", "net_success_gain_over_ldpc", report_dir / "net_success_gain_over_ldpc_vs_ebn0.png", "Net success gain over LDPC", include_ldpc=False)
+    if not df_gap.empty:
+        _line_plot(df_gap, "ebn0_db", "net_success_gap_to_oracle", report_dir / "net_gap_to_oracle_vs_ebn0.png", "Net success gap to oracle", include_ldpc=False)
+        _line_plot(df_gap, "ebn0_db", "selected_snapshot_gap_to_oracle", report_dir / "snapshot_gap_to_oracle_vs_ebn0.png", "Snapshot gap to oracle", include_ldpc=False)
+    if not df_eff.empty:
+        _line_plot(df_eff, "ebn0_db", "net_success_gain_per_1000_queries", report_dir / "query_efficiency_vs_ebn0.png", "Net gain per 1000 queries", include_ldpc=False)
     _line_plot(df_summary, "ebn0_db", "avg_selected_snapshot", report_dir / "avg_selected_snapshot_vs_ebn0.png", "Avg selected snapshot")
     _line_plot(df_summary, "ebn0_db", "avg_frontier_peak", report_dir / "avg_frontier_peak_vs_ebn0.png", "Avg frontier peak", include_ldpc=False)
     if not df_qhit.empty:
         _line_plot(df_qhit, "ebn0_db", "query_cap_hit_rate", report_dir / "query_cap_hit_rate_vs_ebn0.png", "Query-budget hit rate", include_ldpc=False)
     if not df_stage.empty:
         _line_plot_multi(df_stage, "ebn0_db", ["guard_success_rate", "ai_success_rate", "fallback_success_rate", "failure_rate"], report_dir / "tags_stage_contribution_vs_ebn0.png", "Rate over invoked TAGS frames")
+    if not df_stage_visit.empty:
+        _line_plot_multi(df_stage_visit, "ebn0_db", ["guard_visit_rate", "ai_visit_rate", "fallback_visit_rate"], report_dir / "tags_stage_visit_vs_ebn0.png", "Stage visit rate")
     if not df_div.empty:
         _line_plot(df_div, "ebn0_db", "avg_unique_outcomes_per_frame_slot", report_dir / "worker_diversity_vs_ebn0.png", "Avg unique worker outcomes / frame slot")
 
-    _write_markdown(df_summary, df_stage, df_div, report_dir)
+    _write_markdown(df_summary, df_stage, df_stage_visit, df_div, df_qhit, report_dir)
 
 
 if __name__ == "__main__":

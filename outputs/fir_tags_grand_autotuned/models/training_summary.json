@@ -2,13 +2,13 @@
   "snapshot_rows": 48540,
   "bit_rows": 1408068,
   "snapshot_meta": {
-    "best_val_loss": 8.161540979096516e-05,
+    "best_val_loss": 5.0972336047967156e-05,
     "n_total": 48540,
     "n_train": 43686,
     "n_val": 4854
   },
   "bit_meta": {
-    "best_val_loss": 0.4337582541217146,
+    "best_val_loss": 0.43501360022846536,
     "n_total": 1408068,
     "n_train": 1267261,
     "n_val": 140807

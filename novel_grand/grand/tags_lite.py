@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
-from novel_grand.grand.baselines import run_baseline
+from novel_grand.grand.baselines import llr_risk, run_baseline
 from novel_grand.grand.search import Primitive, search_exact_syndrome
 from novel_grand.ldpc.bp_trace import TraceResult
 from novel_grand.ldpc.features import bit_feature_matrix, snapshot_feature_vector
@@ -24,6 +24,25 @@ def _rank01(x: np.ndarray) -> np.ndarray:
 
 
 
+def _individual_primitives(graph_exact: TannerGraph, scores: np.ndarray, topk_bits: int) -> List[Primitive]:
+    idx = np.argsort(scores)[::-1][: int(topk_bits)]
+    out: List[Primitive] = []
+    for j in idx:
+        j = int(j)
+        out.append(
+            Primitive(
+                name=f"bit_{j}",
+                kind="bit",
+                bit_indices=[j],
+                bit_mask=(1 << j),
+                syn_mask=graph_exact.col_syndrome_masks[j],
+                score=float(scores[j]),
+            )
+        )
+    return out
+
+
+
 def _build_group_primitives(
     graph_struct: TannerGraph,
     graph_exact: TannerGraph,
@@ -32,14 +51,14 @@ def _build_group_primitives(
     unsat: np.ndarray,
     syndrome_mask: int,
     cfg,
+    *,
+    topk_bits: int,
+    max_groups: int,
 ) -> List[Primitive]:
-    gcfg = cfg["grand"]
     nr_cfg = cfg["nr"]
-    topk = max(int(gcfg.get("topk_bits", 96)), 128)
-    max_groups = max(int(gcfg.get("max_group_count", 20)), 32)
-    group_bonus_log_size = float(gcfg.get("group_bonus_log_size", 0.10))
+    group_bonus_log_size = float(cfg["grand"].get("group_bonus_log_size", 0.10))
 
-    top_bits = np.argsort(scores)[::-1][:topk].astype(int).tolist()
+    top_bits = np.argsort(scores)[::-1][: int(topk_bits)].astype(int).tolist()
     groups = []
     groups.extend(graph_struct.unsatisfied_components(syndrome_mask, max_groups=max_groups // 3 or 1))
     groups.extend(graph_struct.top_unsatisfied_check_groups(syndrome_mask, max_groups=max_groups // 3 or 1))
@@ -84,7 +103,7 @@ def _build_group_primitives(
                 bit_indices=bits,
                 bit_mask=bit_mask,
                 syn_mask=syn_mask,
-                score=base_score + 0.08 * flip_bonus + 0.15 * unsat_bonus + size_bonus,
+                score=base_score + 0.10 * flip_bonus + 0.18 * unsat_bonus + size_bonus,
             )
         )
         if len(out) >= max_groups:
@@ -106,31 +125,32 @@ def _snapshot_candidates(
         axis=0,
     )
     pred = snapshot_model.predict(snap_feats).reshape(-1)
-    final_idx = len(trace.snapshots) - 1
+    n_snap = len(trace.snapshots)
+    final_idx = n_snap - 1
+    synd = np.asarray([s.syndrome_weight for s in trace.snapshots], dtype=np.float32)
+    iter_frac = np.asarray([s.iter_idx for s in trace.snapshots], dtype=np.float32) / max(float(max_iter), 1.0)
+    synd_frac = synd / max(float(m), 1.0)
+
+    # Earlier, lower-syndrome snapshots tend to be more rescue-friendly than the final BP state.
+    utility = pred + 0.18 * synd_frac + 0.08 * iter_frac
+    utility_order = list(np.argsort(utility))
     model_order = list(np.argsort(pred))
-    min_synd_idx = int(np.argmin([s.syndrome_weight for s in trace.snapshots]))
+    min_synd_idx = int(np.argmin(synd))
 
     candidates: List[int] = []
 
     def _add(idx: int) -> None:
-        if 0 <= idx < len(trace.snapshots) and idx not in candidates:
+        if 0 <= idx < n_snap and idx not in candidates:
             candidates.append(int(idx))
 
-    _add(final_idx)
-    _add(model_order[0])
-    if len(model_order) > 1:
-        _add(model_order[1])
+    _add(int(utility_order[0]))
+    if len(utility_order) > 1:
+        _add(int(utility_order[1]))
     _add(min_synd_idx)
+    _add(int(model_order[0]))
+    _add(final_idx)
 
-    chosen = final_idx
-    for idx in candidates[1:]:
-        if pred[idx] + 0.05 < pred[final_idx] and trace.snapshots[idx].syndrome_weight <= trace.snapshots[final_idx].syndrome_weight:
-            chosen = idx
-            break
-        if trace.snapshots[idx].syndrome_weight + 8 < trace.snapshots[final_idx].syndrome_weight:
-            chosen = idx
-            break
-
+    chosen = candidates[0]
     ordered = [chosen] + [i for i in candidates if i != chosen]
     return chosen, ordered, pred
 
@@ -158,74 +178,70 @@ def _bit_scores_for_snapshot(
 
     inv_abs_post = 1.0 / (np.abs(snapshot.posterior).astype(np.float32) + 1e-3)
     inv_abs_final = 1.0 / (np.abs(final_snapshot.posterior).astype(np.float32) + 1e-3)
+    inv_abs_ch = 1.0 / (np.abs(trace.llr_ch).astype(np.float32) + 1e-3)
     unsat = snapshot.unsat_deg.astype(np.float32)
     flips = snapshot.cumulative_flip_count.astype(np.float32)
 
     scores = (
-        0.40 * _rank01(bit_prob)
-        + 0.30 * _rank01(inv_abs_post)
-        + 0.20 * _rank01(inv_abs_final)
-        + 0.10 * _rank01(unsat + 0.25 * flips)
+        0.48 * _rank01(bit_prob)
+        + 0.24 * _rank01(inv_abs_post)
+        + 0.14 * _rank01(inv_abs_final)
+        + 0.08 * _rank01(inv_abs_ch)
+        + 0.06 * _rank01(unsat + 0.20 * flips)
     ).astype(np.float32)
     return bit_prob, scores
 
 
 
-def _search_stage(
+def _search_from_scores(
     trace: TraceResult,
     snap_idx: int,
     graph_exact: TannerGraph,
     graph_struct: TannerGraph,
-    bit_model: BitRankerModel,
+    scores: np.ndarray,
     cfg,
     query_cap: int,
+    *,
+    stage_tag: str,
+    include_groups: bool,
+    topk_bits: int,
+    expand_width: int,
+    max_prims: int,
+    max_groups: int,
 ) -> Dict:
     snapshot = trace.snapshots[snap_idx]
-    _, bit_scores = _bit_scores_for_snapshot(trace, snap_idx, graph_struct, bit_model, cfg)
-    topk_bits = max(int(cfg["grand"].get("topk_bits", 96)), 128)
-    primitives: List[Primitive] = []
-    top_bits = np.argsort(bit_scores)[::-1][:topk_bits]
-    for j in top_bits:
-        j = int(j)
-        primitives.append(
-            Primitive(
-                name=f"bit_{j}",
-                kind="bit",
-                bit_indices=[j],
-                bit_mask=(1 << j),
-                syn_mask=graph_exact.col_syndrome_masks[j],
-                score=float(bit_scores[j]),
+    primitives: List[Primitive] = _individual_primitives(graph_exact, scores, topk_bits=topk_bits)
+    if include_groups:
+        primitives.extend(
+            _build_group_primitives(
+                graph_struct=graph_struct,
+                graph_exact=graph_exact,
+                scores=scores,
+                flips=snapshot.cumulative_flip_count.astype(np.float32),
+                unsat=snapshot.unsat_deg.astype(np.float32),
+                syndrome_mask=snapshot.structure_syndrome_mask,
+                cfg=cfg,
+                topk_bits=topk_bits,
+                max_groups=max_groups,
             )
         )
-
-    group_prims = _build_group_primitives(
-        graph_struct=graph_struct,
-        graph_exact=graph_exact,
-        scores=bit_scores,
-        flips=snapshot.cumulative_flip_count.astype(np.float32),
-        unsat=snapshot.unsat_deg.astype(np.float32),
-        syndrome_mask=snapshot.structure_syndrome_mask,
-        cfg=cfg,
-    )
-    primitives.extend(group_prims)
     primitives = sorted(primitives, key=lambda p: p.score, reverse=True)
 
-    expand_width = max(int(cfg["grand"].get("search_expand_width", 10)), 24)
-    max_prims = max(int(cfg["grand"].get("max_primitives_in_pattern", 10)), 12)
     res = search_exact_syndrome(
         n=graph_exact.n,
         hard_bits=snapshot.hard,
         syndrome_mask=snapshot.syndrome_mask,
         primitives=primitives,
         query_cap=int(query_cap),
-        max_primitives_in_pattern=max_prims,
-        expand_width=expand_width,
+        max_primitives_in_pattern=int(max_prims),
+        expand_width=int(expand_width),
         overlap_penalty=float(cfg["grand"].get("overlap_penalty", 0.35)),
     )
     valid = graph_exact.syndrome_mask(res.corrected_bits) == 0
     exact = bool(np.array_equal(res.corrected_bits.astype(np.uint8), trace.true_codeword.astype(np.uint8)))
+    selected_kinds = ",".join(res.selected_primitive_kinds) if res.selected_primitive_kinds else ""
+    selected_sizes = ",".join(map(str, res.selected_primitive_sizes))
     return {
-        "decoder": "tags_grand_lite",
         "selected_snapshot": snap_idx + 1,
         "selected_syndrome_weight": int(snapshot.syndrome_weight),
         "queries": int(res.queries),
@@ -235,9 +251,46 @@ def _search_stage(
         "success_exact": bool(exact),
         "valid_codeword": bool(valid),
         "undetected_error": bool(valid and not exact),
-        "primitive_kinds": "ai_rescue" + ("|" + ",".join(res.selected_primitive_kinds) if res.selected_primitive_kinds else ""),
-        "primitive_sizes": ",".join(map(str, res.selected_primitive_sizes)),
+        "primitive_kinds": stage_tag + (("|" + selected_kinds) if selected_kinds else ""),
+        "primitive_sizes": selected_sizes,
     }
+
+
+
+def _search_stage_blend(
+    trace: TraceResult,
+    snap_idx: int,
+    graph_exact: TannerGraph,
+    graph_struct: TannerGraph,
+    bit_model: BitRankerModel,
+    cfg,
+    query_cap: int,
+    *,
+    stage_tag: str,
+    include_groups: bool,
+    topk_bits: int,
+    expand_width: int,
+    max_prims: int,
+    max_groups: int,
+) -> Dict:
+    _, scores = _bit_scores_for_snapshot(trace, snap_idx, graph_struct, bit_model, cfg)
+    out = _search_from_scores(
+        trace=trace,
+        snap_idx=snap_idx,
+        graph_exact=graph_exact,
+        graph_struct=graph_struct,
+        scores=scores,
+        cfg=cfg,
+        query_cap=query_cap,
+        stage_tag=stage_tag,
+        include_groups=include_groups,
+        topk_bits=topk_bits,
+        expand_width=expand_width,
+        max_prims=max_prims,
+        max_groups=max_groups,
+    )
+    out["decoder"] = "tags_grand_lite"
+    return out
 
 
 
@@ -256,6 +309,83 @@ def _merge_results(primary: Dict, secondary: Dict) -> Dict:
 
 
 
+def run_selector_llr_grand(
+    trace: TraceResult,
+    graph_exact: TannerGraph,
+    graph_struct: TannerGraph,
+    snapshot_model: SnapshotSelectorModel,
+    cfg,
+) -> Dict:
+    max_iter = int(cfg["legacy_ldpc"]["num_iter"])
+    chosen_idx, _, _ = _snapshot_candidates(
+        trace=trace,
+        graph_struct=graph_struct,
+        snapshot_model=snapshot_model,
+        max_iter=max_iter,
+        n=graph_exact.n,
+        m=graph_exact.m,
+    )
+    snapshot = trace.snapshots[chosen_idx]
+    scores = llr_risk(snapshot)
+    gcfg = cfg["grand"]
+    out = _search_from_scores(
+        trace=trace,
+        snap_idx=chosen_idx,
+        graph_exact=graph_exact,
+        graph_struct=graph_struct,
+        scores=scores,
+        cfg=cfg,
+        query_cap=int(gcfg["query_cap"]),
+        stage_tag="selector_llr",
+        include_groups=False,
+        topk_bits=max(int(gcfg.get("topk_bits", 96)), 128),
+        expand_width=max(int(gcfg.get("search_expand_width", 10)), 24),
+        max_prims=max(int(gcfg.get("max_primitives_in_pattern", 10)), 12),
+        max_groups=max(int(gcfg.get("max_group_count", 20)), 32),
+    )
+    out["decoder"] = "selector_llr_grand"
+    return out
+
+
+
+def run_selector_blend_grand(
+    trace: TraceResult,
+    graph_exact: TannerGraph,
+    graph_struct: TannerGraph,
+    snapshot_model: SnapshotSelectorModel,
+    bit_model: BitRankerModel,
+    cfg,
+) -> Dict:
+    max_iter = int(cfg["legacy_ldpc"]["num_iter"])
+    chosen_idx, _, _ = _snapshot_candidates(
+        trace=trace,
+        graph_struct=graph_struct,
+        snapshot_model=snapshot_model,
+        max_iter=max_iter,
+        n=graph_exact.n,
+        m=graph_exact.m,
+    )
+    gcfg = cfg["grand"]
+    out = _search_stage_blend(
+        trace=trace,
+        snap_idx=chosen_idx,
+        graph_exact=graph_exact,
+        graph_struct=graph_struct,
+        bit_model=bit_model,
+        cfg=cfg,
+        query_cap=int(gcfg["query_cap"]),
+        stage_tag="selector_blend",
+        include_groups=False,
+        topk_bits=max(int(gcfg.get("topk_bits", 96)), 128),
+        expand_width=max(int(gcfg.get("search_expand_width", 10)), 24),
+        max_prims=max(int(gcfg.get("max_primitives_in_pattern", 10)), 12),
+        max_groups=max(int(gcfg.get("max_group_count", 20)), 32),
+    )
+    out["decoder"] = "selector_blend_grand"
+    return out
+
+
+
 def run_tags_grand_lite(
     trace: TraceResult,
     graph_exact: TannerGraph,
@@ -264,17 +394,28 @@ def run_tags_grand_lite(
     bit_model: BitRankerModel,
     cfg,
 ) -> Dict:
-    """Hybrid non-regression rescue.
+    """Hybrid rescue with a focused AI stage.
 
-    Stage 1: run the empirically strongest practical baseline (final-LLR GRAND).
-    Stage 2: only if Stage 1 fails, spend an additional rescue budget on AI-selected
-             snapshots using blended model + reliability scores and group primitives.
-    Stage 3: if still unsuccessful, use a best-syndrome fallback budget.
+    Stage 1: strongest non-AI guard (final-LLR GRAND).
+    Stage 2: focused AI rescue on one selected snapshot with most of the rescue budget,
+             plus a small secondary budget on an alternative snapshot.
+    Stage 3: conservative best-syndrome fallback.
     """
     base_cfg = copy.deepcopy(cfg)
     q_main = int(base_cfg["grand"]["query_cap"])
     rescue_bonus_cap = int(base_cfg["grand"].get("rescue_bonus_cap", q_main))
     fallback_bonus_cap = int(base_cfg["grand"].get("fallback_bonus_cap", max(1000, q_main // 2)))
+
+    gcfg = base_cfg["grand"]
+    ai_focus_fraction = float(gcfg.get("ai_focus_fraction", 0.80))
+    ai_focus_cap = int(gcfg.get("ai_focus_cap", round(ai_focus_fraction * rescue_bonus_cap)))
+    ai_focus_cap = max(0, min(ai_focus_cap, rescue_bonus_cap))
+    ai_secondary_cap = max(0, rescue_bonus_cap - ai_focus_cap)
+
+    ai_focus_topk_bits = max(int(gcfg.get("ai_focus_topk_bits", max(160, int(gcfg.get("topk_bits", 96))))), 128)
+    ai_focus_expand_width = max(int(gcfg.get("ai_focus_expand_width", max(64, int(gcfg.get("search_expand_width", 10))))), 24)
+    ai_focus_max_prims = max(int(gcfg.get("ai_focus_max_primitives_in_pattern", max(12, int(gcfg.get("max_primitives_in_pattern", 10))))), 12)
+    ai_focus_max_groups = max(int(gcfg.get("ai_focus_max_group_count", max(32, int(gcfg.get("max_group_count", 20))))), 16)
 
     guard_base = run_baseline("final_llr_grand", trace, graph_exact, base_cfg)
     guard = dict(guard_base)
@@ -294,34 +435,50 @@ def run_tags_grand_lite(
         m=graph_exact.m,
     )
 
-    # Spend rescue budget across a small candidate snapshot portfolio.
-    ai_caps = []
-    n_ai = max(len(candidates), 1)
-    base_share = max(512, rescue_bonus_cap // n_ai)
-    remaining = rescue_bonus_cap
-    for i in range(n_ai):
-        if i == n_ai - 1:
-            ai_caps.append(max(0, remaining))
-        else:
-            cap_i = min(base_share, remaining)
-            ai_caps.append(cap_i)
-            remaining -= cap_i
-
     accumulated = dict(guard)
-    for snap_idx, stage_cap in zip(candidates, ai_caps):
-        if stage_cap <= 0:
-            continue
-        ai_res = _search_stage(
+
+    if ai_focus_cap > 0:
+        ai_main = _search_stage_blend(
             trace=trace,
-            snap_idx=snap_idx,
+            snap_idx=chosen_idx,
             graph_exact=graph_exact,
             graph_struct=graph_struct,
             bit_model=bit_model,
             cfg=cfg,
-            query_cap=stage_cap,
+            query_cap=ai_focus_cap,
+            stage_tag="ai_focus",
+            include_groups=True,
+            topk_bits=ai_focus_topk_bits,
+            expand_width=ai_focus_expand_width,
+            max_prims=ai_focus_max_prims,
+            max_groups=ai_focus_max_groups,
         )
-        accumulated = _merge_results(accumulated, ai_res)
-        if ai_res.get("valid_codeword", False):
+        accumulated = _merge_results(accumulated, ai_main)
+        if ai_main.get("valid_codeword", False):
+            accumulated["query_budget"] = int(q_main + rescue_bonus_cap + fallback_bonus_cap)
+            return accumulated
+
+    alt_candidates = [idx for idx in candidates if idx != chosen_idx]
+    if ai_secondary_cap > 0 and alt_candidates:
+        secondary_idx = int(alt_candidates[0])
+        ai_secondary = _search_stage_blend(
+            trace=trace,
+            snap_idx=secondary_idx,
+            graph_exact=graph_exact,
+            graph_struct=graph_struct,
+            bit_model=bit_model,
+            cfg=cfg,
+            query_cap=ai_secondary_cap,
+            stage_tag="ai_secondary",
+            include_groups=False,
+            topk_bits=max(int(gcfg.get("topk_bits", 96)), 128),
+            expand_width=max(int(gcfg.get("search_expand_width", 10)), 24),
+            max_prims=max(int(gcfg.get("max_primitives_in_pattern", 10)), 12),
+            max_groups=max(int(gcfg.get("max_group_count", 20)), 32),
+        )
+        accumulated = _merge_results(accumulated, ai_secondary)
+        if ai_secondary.get("valid_codeword", False):
+            accumulated["query_budget"] = int(q_main + rescue_bonus_cap + fallback_bonus_cap)
             return accumulated
 
     fb_cfg = copy.deepcopy(cfg)

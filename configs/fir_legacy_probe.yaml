@@ -59,6 +59,13 @@ grand:
   overlap_penalty: 0.35
   group_bonus_log_size: 0.10
   keep_oracle_upper_bound: true
+  rescue_bonus_cap: 5000
+  fallback_bonus_cap: 2500
+  ai_focus_fraction: 0.80
+  ai_focus_topk_bits: 160
+  ai_focus_expand_width: 64
+  ai_focus_max_primitives_in_pattern: 12
+  ai_focus_max_group_count: 32
 
 training:
   snapshot_hidden_dims: [64, 32]

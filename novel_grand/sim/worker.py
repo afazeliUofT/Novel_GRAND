@@ -10,7 +10,11 @@ import torch
 
 from novel_grand.config import run_root
 from novel_grand.grand.baselines import run_baseline
-from novel_grand.grand.tags_lite import run_tags_grand_lite
+from novel_grand.grand.tags_lite import (
+    run_selector_blend_grand,
+    run_selector_llr_grand,
+    run_tags_grand_lite,
+)
 from novel_grand.ldpc.bp_trace import BPTraceRunner
 from novel_grand.ldpc.features import bit_feature_matrix, oracle_best_snapshot, snapshot_training_rows
 from novel_grand.models.training import load_bit_ranker, load_snapshot_selector
@@ -158,10 +162,12 @@ def evaluate_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
         "final_llr_grand",
         "best_syndrome_llr_grand",
         "best_syndrome_unsat_grand",
+        "selector_llr_grand",
+        "selector_blend_grand",
         "tags_grand_lite",
     ]
     if cfg["grand"].get("keep_oracle_upper_bound", False):
-        baselines.insert(4, "oracle_best_llr")
+        baselines.insert(6, "oracle_best_llr")
 
     frame_rows: List[Dict] = []
 
@@ -197,6 +203,10 @@ def evaluate_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
                 t1 = time.perf_counter()
                 if name == "tags_grand_lite":
                     res = run_tags_grand_lite(trace, graph_exact, graph_struct, snapshot_model, bit_model, cfg)
+                elif name == "selector_llr_grand":
+                    res = run_selector_llr_grand(trace, graph_exact, graph_struct, snapshot_model, cfg)
+                elif name == "selector_blend_grand":
+                    res = run_selector_blend_grand(trace, graph_exact, graph_struct, snapshot_model, bit_model, cfg)
                 else:
                     res = run_baseline(name, trace, graph_exact, cfg)
                 res.update(

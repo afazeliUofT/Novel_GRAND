@@ -15,7 +15,9 @@ rm -rf novel_grand.egg-info
 
 echo "- removing local overlay archives from repo root"
 rm -f Novel_GRAND_fixed_overlay.zip Novel_GRAND_repo_overlay.zip Novel_GRAND_full_package.zip \
-      Novel_GRAND_repair_overlay.zip Novel_GRAND_metricfix_overlay.zip Novel_GRAND_repo_overlay.zip
+      Novel_GRAND_repair_overlay.zip Novel_GRAND_metricfix_overlay.zip Novel_GRAND_repo_overlay.zip \
+      Novel_GRAND_standalone_package.zip Novel_GRAND_standalone_v2_seedfix_package.zip \
+      Novel_GRAND_standalone_v3_focusfix_package.zip
 
 echo "- removing TAGS-GRAND outputs, including accidental nested outputs"
 rm -rf outputs/fir_tags_grand_default \
