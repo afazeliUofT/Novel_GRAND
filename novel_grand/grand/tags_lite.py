@@ -229,6 +229,7 @@ def _search_stage(
         "selected_snapshot": snap_idx + 1,
         "selected_syndrome_weight": int(snapshot.syndrome_weight),
         "queries": int(res.queries),
+        "query_budget": int(query_cap),
         "frontier_peak": int(res.frontier_peak),
         "pattern_weight": int(res.pattern_mask.bit_count()),
         "success_exact": bool(exact),
@@ -243,6 +244,7 @@ def _search_stage(
 def _merge_results(primary: Dict, secondary: Dict) -> Dict:
     out = dict(secondary)
     out["queries"] = int(primary.get("queries", 0)) + int(secondary.get("queries", 0))
+    out["query_budget"] = int(primary.get("query_budget", 0)) + int(secondary.get("query_budget", 0))
     out["frontier_peak"] = int(max(primary.get("frontier_peak", 0), secondary.get("frontier_peak", 0)))
     pk1 = str(primary.get("primitive_kinds", ""))
     pk2 = str(secondary.get("primitive_kinds", ""))
@@ -274,10 +276,11 @@ def run_tags_grand_lite(
     rescue_bonus_cap = int(base_cfg["grand"].get("rescue_bonus_cap", q_main))
     fallback_bonus_cap = int(base_cfg["grand"].get("fallback_bonus_cap", max(1000, q_main // 2)))
 
-    guard = run_baseline("final_llr_grand", trace, graph_exact, base_cfg)
-    guard = dict(guard)
+    guard_base = run_baseline("final_llr_grand", trace, graph_exact, base_cfg)
+    guard = dict(guard_base)
     guard["decoder"] = "tags_grand_lite"
-    guard["primitive_kinds"] = "guard_final_llr"
+    guard["query_budget"] = int(q_main + rescue_bonus_cap + fallback_bonus_cap)
+    guard["primitive_kinds"] = "|".join([x for x in ["guard_final_llr", str(guard_base.get("primitive_kinds", ""))] if x])
     if guard.get("valid_codeword", False):
         return guard
 
@@ -324,9 +327,11 @@ def run_tags_grand_lite(
     fb_cfg = copy.deepcopy(cfg)
     fb_cfg["grand"] = dict(cfg["grand"])
     fb_cfg["grand"]["query_cap"] = int(fallback_bonus_cap)
-    fallback = run_baseline("best_syndrome_llr_grand", trace, graph_exact, fb_cfg)
-    fallback = dict(fallback)
+    fallback_base = run_baseline("best_syndrome_llr_grand", trace, graph_exact, fb_cfg)
+    fallback = dict(fallback_base)
     fallback["decoder"] = "tags_grand_lite"
-    fallback["primitive_kinds"] = "fallback_best_syndrome_llr"
+    fallback["query_budget"] = int(fb_cfg["grand"]["query_cap"])
+    fallback["primitive_kinds"] = "|".join([x for x in ["fallback_best_syndrome_llr", str(fallback_base.get("primitive_kinds", ""))] if x])
     accumulated = _merge_results(accumulated, fallback)
+    accumulated["query_budget"] = int(q_main + rescue_bonus_cap + fallback_bonus_cap)
     return accumulated

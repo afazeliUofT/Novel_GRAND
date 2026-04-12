@@ -28,6 +28,7 @@ channel:
   eps_equalizer: 1.0e-08
 simulation:
   ebn0_db_list:
+  - 10.0
   - 11.0
   - 12.0
   - 13.0

@@ -32,6 +32,8 @@ check_dir  "outputs/fir_tags_grand_autotuned/eval"
 check_dir  "outputs/fir_tags_grand_autotuned/reports"
 check_file "outputs/fir_tags_grand_autotuned/reports/summary_eval.csv"
 check_file "outputs/fir_tags_grand_autotuned/reports/summary.md"
+check_file "outputs/fir_tags_grand_autotuned/reports/worker_diversity_summary.csv"
+check_file "outputs/fir_tags_grand_autotuned/reports/tags_stage_contribution_summary.csv"
 check_file "outputs/fir_tags_grand_autotuned/reports/net_exact_success_rate_vs_ebn0.png"
 
 nested=$(find outputs -type d -path '*/outputs/fir_tags_grand_autotuned' 2>/dev/null | head -n 1 || true)

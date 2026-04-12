@@ -7,6 +7,8 @@ __pycache__/
 *.pyo
 *.pyd
 *.so
+*.npz
+*.jsonl
 *.egg-info/
 # Local overlay archives
 Novel_GRAND_*overlay.zip

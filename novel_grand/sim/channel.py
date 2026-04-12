@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Optional
 
 import numpy as np
 import torch
@@ -16,9 +16,10 @@ class LinkSample:
 
 
 class NRSlotQAMLink:
-    def __init__(self, cfg: Dict):
+    def __init__(self, cfg: Dict, seed: Optional[int] = None):
         self.cfg = cfg
         self.device = cfg["system"]["device"]
+        self.seed = None if seed is None else int(seed)
 
         try:
             from sionna.phy.fec.ldpc import LDPC5GEncoder
@@ -52,7 +53,22 @@ class NRSlotQAMLink:
             num_bits_per_symbol=self.bits_per_symbol,
             device=self.device,
         )
-        self.binary_source = BinarySource(device=self.device)
+
+        # Use an explicit BinarySource seed when supported. Falling back to a
+        # local torch generator still guarantees worker-unique Monte Carlo bits.
+        self._binary_source = None
+        try:
+            if self.seed is not None:
+                self._binary_source = BinarySource(seed=self.seed, device=self.device)
+            else:
+                self._binary_source = BinarySource(device=self.device)
+        except TypeError:
+            self._binary_source = None
+
+        self._torch_gen = torch.Generator(device='cpu')
+        if self.seed is not None:
+            self._torch_gen.manual_seed(self.seed)
+
         self.mapper = Mapper("qam", self.bits_per_symbol, device=self.device)
         self.demapper = Demapper("maxlog", "qam", self.bits_per_symbol, device=self.device)
 
@@ -72,7 +88,7 @@ class NRSlotQAMLink:
         self.channel_mode = str(ch["mode"]).lower()
         self.eps_equalizer = float(ch.get("eps_equalizer", 1e-8))
         if self.channel_mode == "tdl":
-            tdl = TDL(
+            tdl_kwargs = dict(
                 model=str(ch["delay_profile"]),
                 delay_spread=float(ch["delay_spread_s"]),
                 carrier_frequency=float(ch["carrier_frequency_hz"]),
@@ -82,6 +98,13 @@ class NRSlotQAMLink:
                 num_tx_ant=1,
                 device=self.device,
             )
+            if self.seed is not None:
+                tdl_kwargs["seed"] = self.seed
+            try:
+                tdl = TDL(**tdl_kwargs)
+            except TypeError:
+                tdl_kwargs.pop("seed", None)
+                tdl = TDL(**tdl_kwargs)
             self.channel = OFDMChannel(
                 channel_model=tdl,
                 resource_grid=self.resource_grid,
@@ -103,8 +126,22 @@ class NRSlotQAMLink:
         esn0_lin = ebn0_lin * self.coderate * self.bits_per_symbol
         return float(1.0 / esn0_lin)
 
+    def _sample_info_bits(self) -> torch.Tensor:
+        if self._binary_source is not None:
+            return self._binary_source([1, self.k])
+        # Fallback path if BinarySource does not expose a seed parameter in the
+        # installed Sionna version.
+        bits = torch.randint(
+            low=0,
+            high=2,
+            size=(1, self.k),
+            generator=self._torch_gen,
+            dtype=torch.int64,
+        ).to(self.device)
+        return bits.to(torch.float32)
+
     def sample(self, ebn0_db: float) -> LinkSample:
-        b = self.binary_source([1, self.k])
+        b = self._sample_info_bits()
         c = self.encoder(b)
         x = self.mapper(c).reshape(1, 1, 1, self.num_ofdm_symbols, self.fft_size)
 
@@ -118,9 +155,9 @@ class NRSlotQAMLink:
             no_flat = no_eff.real.reshape(1, -1)
         else:
             noise = torch.sqrt(torch.tensor(no / 2.0, dtype=torch.float32, device=x.device))
-            w = noise * (
-                torch.randn_like(x.real) + 1j * torch.randn_like(x.real)
-            )
+            w_real = torch.randn(x.real.shape, generator=self._torch_gen, dtype=x.real.dtype).to(x.device)
+            w_imag = torch.randn(x.real.shape, generator=self._torch_gen, dtype=x.real.dtype).to(x.device)
+            w = noise * (w_real + 1j * w_imag)
             y_flat = (x + w)[:, 0, 0, :, :].reshape(1, -1)
             no_flat = torch.full_like(y_flat.real, fill_value=no)
 

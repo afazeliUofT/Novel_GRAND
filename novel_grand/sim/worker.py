@@ -28,7 +28,7 @@ def collect_train_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
     set_global_seed(seed)
     torch.set_num_threads(int(cfg["system"]["torch_threads_per_worker"]))
 
-    link = NRSlotQAMLink(cfg)
+    link = NRSlotQAMLink(cfg, seed=seed)
     tracer = BPTraceRunner(link.encoder, cfg)
     out_root = run_root(cfg)
     shard_dir = ensure_dir(out_root / "train" / "shards")
@@ -60,6 +60,7 @@ def collect_train_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
             "selected_snapshot": int(trace.stop_iteration),
             "selected_syndrome_weight": int(trace.snapshots[-1].syndrome_weight),
             "queries": 0,
+            "query_budget": 0,
             "frontier_peak": 0,
             "pattern_weight": 0,
             "success_exact": int(trace.legacy_success and np.array_equal(trace.snapshots[-1].hard, trace.true_codeword)),
@@ -126,7 +127,7 @@ def evaluate_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
     set_global_seed(seed)
     torch.set_num_threads(int(cfg["system"]["torch_threads_per_worker"]))
 
-    link = NRSlotQAMLink(cfg)
+    link = NRSlotQAMLink(cfg, seed=seed)
     tracer = BPTraceRunner(link.encoder, cfg)
     graph_exact = tracer.graph_exact
     graph_struct = tracer.graph_struct
@@ -179,6 +180,7 @@ def evaluate_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
             "selected_snapshot": int(trace.stop_iteration),
             "selected_syndrome_weight": int(trace.snapshots[-1].syndrome_weight),
             "queries": 0,
+            "query_budget": 0,
             "frontier_peak": 0,
             "pattern_weight": 0,
             "success_exact": int(trace.legacy_success and np.array_equal(trace.snapshots[-1].hard, trace.true_codeword)),

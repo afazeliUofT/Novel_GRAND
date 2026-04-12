@@ -42,7 +42,7 @@ def _probe_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
     set_global_seed(seed)
     torch.set_num_threads(int(cfg["system"]["torch_threads_per_worker"]))
 
-    link = NRSlotQAMLink(cfg)
+    link = NRSlotQAMLink(cfg, seed=seed)
     tracer = BPTraceRunner(link.encoder, cfg)
     out_root = run_root(cfg)
     shard_dir = _ensure_dir(out_root / "probe" / "shards")

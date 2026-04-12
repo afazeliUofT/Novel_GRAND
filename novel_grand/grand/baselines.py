@@ -87,6 +87,7 @@ def run_baseline(name: str, trace: TraceResult, graph: TannerGraph, cfg) -> Dict
         "selected_snapshot": snap_idx + 1,
         "selected_syndrome_weight": int(snapshot.syndrome_weight),
         "queries": int(res.queries),
+        "query_budget": int(cfg["grand"]["query_cap"]),
         "frontier_peak": int(res.frontier_peak),
         "pattern_weight": int(res.pattern_mask.bit_count()),
         "success_exact": exact,
