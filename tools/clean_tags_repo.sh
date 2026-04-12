@@ -13,15 +13,14 @@ find . -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete 2>/dev/null || true
 echo "- removing editable-install metadata"
 rm -rf novel_grand.egg-info
 
-echo "- removing old overlay archives from repo root"
-rm -f Novel_GRAND_fixed_overlay.zip Novel_GRAND_repo_overlay.zip Novel_GRAND_full_package.zip
+echo "- removing local overlay archives from repo root"
+rm -f Novel_GRAND_*overlay.zip Novel_GRAND_*package.zip || true
 
 echo "- removing old TAGS-GRAND outputs and logs"
-rm -rf outputs/fir_tags_grand_default outputs/fir_tags_grand_smoke outputs/fir_legacy_probe_default outputs/fir_tags_grand_autotuned
-rm -rf outputs/_effective_code_cache
-rm -f outputs/slurm_tags_*.out outputs/slurm_tags_*.err
-rm -f probe_outputs/check_tags_package_*.log
+rm -rf       outputs/fir_tags_grand_default       outputs/fir_tags_grand_autotuned       outputs/fir_tags_grand_smoke       outputs/fir_legacy_probe_default       outputs/_effective_code_cache || true
+
+rm -f outputs/slurm_tags_*.out outputs/slurm_tags_*.err || true
+rm -f probe_outputs/check_tags_package_*.log || true
 
 echo "- preserving .venv-fir and environment probe logs"
-
 echo "Done."

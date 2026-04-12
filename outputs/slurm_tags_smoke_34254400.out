@@ -1,0 +1,12 @@
+{
+  "status": "ok",
+  "k": 1088,
+  "n": 1344,
+  "bits_per_symbol": 4,
+  "channel_mode": "tdl",
+  "ebn0_db": 6.0,
+  "legacy_success": false,
+  "stop_iteration": 8,
+  "final_syndrome_weight": 113,
+  "tx_codeword_exact_syndrome_weight": 0
+}

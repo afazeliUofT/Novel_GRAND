@@ -7,6 +7,7 @@
   ],
   "selection_rule": {
     "target_failure_min": 0.01,
-    "target_failure_max": 0.2
+    "target_failure_max": 0.2,
+    "used_smoothed_failure_curve": true
   }
 }

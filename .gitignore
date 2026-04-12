@@ -1,9 +1,14 @@
-
 # FIR local virtualenv
 .venv-fir/
-# Python cache / build noise
+
+# Python cache / build metadata
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
+*.pyd
+*.so
 *.egg-info/
-probe_outputs/check_tags_package_*.log
+
+# Local overlay archives
+Novel_GRAND_*overlay.zip
+Novel_GRAND_*package.zip

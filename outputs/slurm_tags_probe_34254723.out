@@ -1,0 +1,20 @@
+ ebn0_db  n_frames  detected_failure_rate  detected_failure_rate_ci_low  detected_failure_rate_ci_high  exact_success_rate  valid_codeword_rate  undetected_error_rate  undetected_error_rate_ci_low  undetected_error_rate_ci_high  avg_stop_iteration  avg_runtime_ms  avg_final_syndrome_weight_on_fail  detected_failure_rate_smoothed
+     8.0      4096               0.640625                      0.625805                       0.655181            0.359375             0.359375                    0.0                           0.0                       0.000937            9.593750       28.678834                         129.926829                        0.640625
+     9.0      4096               0.296875                      0.283079                       0.311052            0.703125             0.703125                    0.0                           0.0                       0.000937            6.453125       18.109057                         128.368421                        0.296875
+    10.0      4096               0.202637                      0.190608                       0.215223            0.797363             0.797363                    0.0                           0.0                       0.000937            4.578613       12.681907                         129.421687                        0.202637
+    11.0      4096               0.111572                      0.102292                       0.121581            0.888428             0.888428                    0.0                           0.0                       0.000937            3.199707        9.189531                         112.439825                        0.111572
+    12.0      4096               0.066895                      0.059642                       0.074959            0.933105             0.933105                    0.0                           0.0                       0.000937            2.569336        7.454654                         128.186131                        0.066895
+    13.0      4096               0.049805                      0.043554                       0.056899            0.950195             0.950195                    0.0                           0.0                       0.000937            2.143311        6.622568                         125.171569                        0.049805
+    14.0      4096               0.048584                      0.042412                       0.055602            0.951416             0.951416                    0.0                           0.0                       0.000937            1.867432        5.709148                         128.095477                        0.048584
+
+{
+  "status": "ok",
+  "n_jobs": 448,
+  "out_root": "/scratch/rsadve1/Novel_GRAND/outputs/fir_legacy_probe_default",
+  "recommended_ebn0_db_list": [
+    11.0,
+    12.0,
+    13.0,
+    14.0
+  ]
+}

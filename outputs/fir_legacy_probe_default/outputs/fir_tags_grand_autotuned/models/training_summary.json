@@ -1,16 +1,16 @@
 {
-  "snapshot_rows": 37608,
-  "bit_rows": 1058904,
+  "snapshot_rows": 34476,
+  "bit_rows": 898353,
   "snapshot_meta": {
-    "best_val_loss": 7.479083340397065e-05,
-    "n_total": 37608,
-    "n_train": 33848,
-    "n_val": 3760
+    "best_val_loss": 3.7976863567218145e-05,
+    "n_total": 34476,
+    "n_train": 31029,
+    "n_val": 3447
   },
   "bit_meta": {
-    "best_val_loss": 0.3178915276384655,
-    "n_total": 1058904,
-    "n_train": 953014,
-    "n_val": 105890
+    "best_val_loss": 0.353119968773162,
+    "n_total": 898353,
+    "n_train": 808518,
+    "n_val": 89835
   }
 }
