@@ -12,21 +12,20 @@ For rescue decoders, **conditional** success means success only on frames that l
 - `Eb/N0=14.00 dB`: **oracle_best_llr** with net exact success `0.963938` and average queries per original frame `182.28`.
 
 ## TAGS stage contribution (conditional on LDPC-detected failures)
-- `Eb/N0=10.00 dB`: guard `0.150224`, ai `0.000000`, fallback `0.008328`, fail `0.841448`.
+- `Eb/N0=10.00 dB`: guard `0.150224`, ai `0.000641`, fallback `0.007687`, fail `0.841448`.
 - `Eb/N0=11.00 dB`: guard `0.135840`, ai `0.000000`, fallback `0.007519`, fail `0.856642`.
-- `Eb/N0=12.00 dB`: guard `0.145251`, ai `0.000000`, fallback `0.004190`, fail `0.850559`.
-- `Eb/N0=13.00 dB`: guard `0.169458`, ai `0.000000`, fallback `0.006897`, fail `0.823645`.
-- `Eb/N0=14.00 dB`: guard `0.226018`, ai `0.000000`, fallback `0.007884`, fail `0.766097`.
+- `Eb/N0=12.00 dB`: guard `0.145251`, ai `0.001397`, fallback `0.003492`, fail `0.849860`.
+- `Eb/N0=13.00 dB`: guard `0.169458`, ai `0.000985`, fallback `0.005911`, fail `0.823645`.
+- `Eb/N0=14.00 dB`: guard `0.226018`, ai `0.002628`, fallback `0.006570`, fail `0.764783`.
 
 ## TAGS stage visit rates
-- `Eb/N0=10.00 dB`: guard visited `1.000000`, ai visited `0.849776`, fallback visited `0.849776`.
+- `Eb/N0=10.00 dB`: guard visited `1.000000`, ai visited `0.849776`, fallback visited `0.849135`.
 - `Eb/N0=11.00 dB`: guard visited `1.000000`, ai visited `0.864160`, fallback visited `0.864160`.
-- `Eb/N0=12.00 dB`: guard visited `1.000000`, ai visited `0.854749`, fallback visited `0.854749`.
-- `Eb/N0=13.00 dB`: guard visited `1.000000`, ai visited `0.830542`, fallback visited `0.830542`.
-- `Eb/N0=14.00 dB`: guard visited `1.000000`, ai visited `0.773982`, fallback visited `0.773982`.
+- `Eb/N0=12.00 dB`: guard visited `1.000000`, ai visited `0.854749`, fallback visited `0.853352`.
+- `Eb/N0=13.00 dB`: guard visited `1.000000`, ai visited `0.830542`, fallback visited `0.829557`.
+- `Eb/N0=14.00 dB`: guard visited `1.000000`, ai visited `0.773982`, fallback visited `0.771353`.
 
 ## Warnings
-- The AI rescue stage contributed zero exact rescues in this run.
 - At least one rescue decoder hit its query cap on 75%+ of invoked frames, indicating saturation.
 
 ## Files

@@ -1,30 +1,35 @@
-# Novel_GRAND standalone package – update 3
+Novel_GRAND standalone v4 (teacher-fix)
+======================================
 
-This update addresses the latest full-run findings.
+What changed
+------------
+1. Teacher-aligned training targets
+   - Snapshot labels are now based on the best LLR rescue snapshot under the
+     actual GRAND search budget used during data collection.
+   - Bit labels are now based on the teacher rescue pattern itself instead of
+     raw wrong-bit masks on the Hamming-oracle snapshot.
 
-## Fixed
-- `summary.md` is now regenerated correctly by the report stage. The stray `PLACEHOLDER` token that could leave Markdown reports stale is removed.
-- `check_pipeline_status.sh` now warns when `summary.md` is older than `summary_eval.csv`, and when probe recommendation files disagree.
+2. TAGS-GRAND-Lite rescue flow
+   - Guard stage remains final-iteration LLR GRAND.
+   - AI stage is now a learned snapshot selector followed by LLR-ordered GRAND
+     on the selected snapshot.
+   - A learned blend search on the same selected snapshot is retained as a
+     secondary AI stage.
+   - Conservative best-syndrome fallback remains last.
 
-## Improved
-- TAGS-GRAND-Lite now uses a **focused AI rescue schedule** instead of fragmenting the AI budget evenly across many snapshots.
-- The snapshot chooser is biased toward earlier, lower-syndrome snapshots that empirically sit closer to the oracle-best rescue point.
-- The focused AI stage uses a richer frontier (`ai_focus_topk_bits`, `ai_focus_expand_width`) while keeping the total budget compatible with the previous run.
+3. Training / runtime defaults
+   - Training epochs increased to 20.
+   - Slightly larger MLPs.
+   - Rescue/fallback budgets rebalanced to reduce wasted queries.
 
-## Added
-- Two analysis baselines:
-  - `selector_llr_grand`
-  - `selector_blend_grand`
-- New reports:
-  - `gap_to_oracle_summary.csv`
-  - `net_gap_to_oracle_vs_ebn0.png`
-  - `snapshot_gap_to_oracle_vs_ebn0.png`
-  - `query_efficiency_summary.csv`
-  - `query_efficiency_vs_ebn0.png`
-  - `tags_stage_visit_summary.csv`
-  - `tags_stage_visit_vs_ebn0.png`
+Why this update was needed
+--------------------------
+The previous v3 run showed:
+- end-to-end pipeline worked,
+- worker diversity looked reasonable,
+- but the AI stage contributed zero exact rescues,
+- and almost all TAGS gains came from the non-AI guard and tiny fallback.
 
-## Why this matters
-The previous published run showed that Monte Carlo diversity had improved, but the AI rescue stage still contributed zero exact rescues while consuming about 2.5x the query budget of the strongest non-AI baseline. This update is designed to answer two questions cleanly on the next rerun:
-1. Does AI snapshot selection alone add value?
-2. Does a focused AI rescue stage recover any of the oracle headroom without exploding query cost?
+The main issue was target mismatch: models were trained against raw Hamming-
+distance or wrong-bit labels, while the deployment objective is exact rescue
+within a finite query budget.

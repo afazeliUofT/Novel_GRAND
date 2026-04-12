@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Tuple
 
 import numpy as np
 
@@ -61,7 +60,32 @@ def _run_search(graph: TannerGraph, snapshot, scores: np.ndarray, cfg) -> Search
     )
 
 
-def run_baseline(name: str, trace: TraceResult, graph: TannerGraph, cfg) -> Dict:
+def _format_result(trace: TraceResult, graph: TannerGraph, snapshot, snap_idx: int, res: SearchResult, cfg, name: str) -> Tuple[Dict, Dict]:
+    valid = graph.syndrome_mask(res.corrected_bits) == 0
+    exact = bool(np.array_equal(res.corrected_bits.astype(np.uint8), trace.true_codeword.astype(np.uint8)))
+    out = {
+        "decoder": name,
+        "selected_snapshot": snap_idx + 1,
+        "selected_syndrome_weight": int(snapshot.syndrome_weight),
+        "queries": int(res.queries),
+        "query_budget": int(cfg["grand"]["query_cap"]),
+        "frontier_peak": int(res.frontier_peak),
+        "pattern_weight": int(res.pattern_mask.bit_count()),
+        "success_exact": exact,
+        "valid_codeword": bool(valid),
+        "undetected_error": bool(valid and not exact),
+        "primitive_kinds": ",".join(res.selected_primitive_kinds),
+        "primitive_sizes": ",".join(map(str, res.selected_primitive_sizes)),
+    }
+    artifacts = {
+        "selected_snapshot_index": int(snap_idx),
+        "corrected_bits": res.corrected_bits.astype(np.uint8),
+        "pattern_mask_int": int(res.pattern_mask),
+    }
+    return out, artifacts
+
+
+def _baseline_core(name: str, trace: TraceResult, graph: TannerGraph, cfg) -> Tuple[Dict, Dict]:
     if name == "final_llr_grand":
         snap_idx = len(trace.snapshots) - 1
         scores = llr_risk(trace.snapshots[snap_idx])
@@ -79,20 +103,45 @@ def run_baseline(name: str, trace: TraceResult, graph: TannerGraph, cfg) -> Dict
 
     snapshot = trace.snapshots[snap_idx]
     res = _run_search(graph, snapshot, scores, cfg)
-    valid = graph.syndrome_mask(res.corrected_bits) == 0
-    exact = bool(np.array_equal(res.corrected_bits.astype(np.uint8), trace.true_codeword.astype(np.uint8)))
+    return _format_result(trace, graph, snapshot, snap_idx, res, cfg, name)
 
-    return {
-        "decoder": name,
-        "selected_snapshot": snap_idx + 1,
-        "selected_syndrome_weight": int(snapshot.syndrome_weight),
-        "queries": int(res.queries),
-        "query_budget": int(cfg["grand"]["query_cap"]),
-        "frontier_peak": int(res.frontier_peak),
-        "pattern_weight": int(res.pattern_mask.bit_count()),
-        "success_exact": exact,
-        "valid_codeword": bool(valid),
-        "undetected_error": bool(valid and not exact),
-        "primitive_kinds": ",".join(res.selected_primitive_kinds),
-        "primitive_sizes": ",".join(map(str, res.selected_primitive_sizes)),
-    }
+
+def run_baseline(name: str, trace: TraceResult, graph: TannerGraph, cfg) -> Dict:
+    out, _ = _baseline_core(name, trace, graph, cfg)
+    return out
+
+
+def run_baseline_detailed(name: str, trace: TraceResult, graph: TannerGraph, cfg) -> Dict:
+    out, artifacts = _baseline_core(name, trace, graph, cfg)
+    detailed = dict(out)
+    detailed.update(artifacts)
+    return detailed
+
+
+def run_teacher_best_snapshot_llr(trace: TraceResult, graph: TannerGraph, cfg) -> Dict:
+    """Training-time teacher: choose the best LLR-ordered snapshot under budget.
+
+    This is aligned with the actual rescue objective, unlike the raw-Hamming
+    oracle snapshot. Exact success is preferred. Among exact rescues, fewer
+    queries and smaller pattern weight win.
+    """
+    best_out = None
+    best_art = None
+    best_key = None
+    for snap_idx, snapshot in enumerate(trace.snapshots):
+        res = _run_search(graph, snapshot, llr_risk(snapshot), cfg)
+        out, art = _format_result(trace, graph, snapshot, snap_idx, res, cfg, "teacher_best_snapshot_llr")
+        key = (
+            0 if out["success_exact"] else 1,
+            int(out["queries"]),
+            int(out["pattern_weight"]),
+            int(snapshot.syndrome_weight),
+            int(snap_idx),
+        )
+        if best_key is None or key < best_key:
+            best_key = key
+            best_out = out
+            best_art = art
+    detailed = dict(best_out)
+    detailed.update(best_art)
+    return detailed

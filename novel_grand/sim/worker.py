@@ -1,30 +1,29 @@
 from __future__ import annotations
 
-import json
 import time
-from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import numpy as np
 import torch
 
 from novel_grand.config import run_root
-from novel_grand.grand.baselines import run_baseline
+from novel_grand.grand.baselines import run_baseline, run_teacher_best_snapshot_llr
 from novel_grand.grand.tags_lite import (
     run_selector_blend_grand,
     run_selector_llr_grand,
     run_tags_grand_lite,
 )
 from novel_grand.ldpc.bp_trace import BPTraceRunner
-from novel_grand.ldpc.features import bit_feature_matrix, oracle_best_snapshot, snapshot_training_rows
+from novel_grand.ldpc.features import (
+    bit_feature_matrix,
+    oracle_best_snapshot,
+    snapshot_training_rows,
+    teacher_snapshot_training_rows,
+)
 from novel_grand.models.training import load_bit_ranker, load_snapshot_selector
 from novel_grand.sim.channel import NRSlotQAMLink
 from novel_grand.utils.io import ensure_dir, write_jsonl
 from novel_grand.utils.seed import set_global_seed
-
-
-def _safe_bool(x) -> bool:
-    return bool(x)
 
 
 def collect_train_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
@@ -79,17 +78,48 @@ def collect_train_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
         if trace.legacy_success:
             continue
 
-        snapshot_rows.extend(snapshot_training_rows(trace, max_iter, tracer.graph_struct.max_vn_degree, tracer.graph_exact.m))
+        # Teacher-aligned targets: use the strongest snapshot-aware LLR teacher.
+        teacher = run_teacher_best_snapshot_llr(trace, tracer.graph_exact, cfg)
+        teacher_exact = bool(teacher.get("success_exact", False))
+        teacher_snapshot_idx = int(teacher.get("selected_snapshot_index", oracle_best_snapshot(trace)))
 
-        oracle_idx = oracle_best_snapshot(trace)
-        bit_x, bit_y = bit_feature_matrix(
-            trace=trace,
-            snapshot_idx=oracle_idx,
-            max_iter=max_iter,
-            max_vn_degree=tracer.graph_struct.max_vn_degree,
-            bits_per_symbol=int(nr["bits_per_symbol"]),
-            fft_size=int(nr["fft_size"]),
-        )
+        if teacher_exact:
+            snapshot_rows.extend(
+                teacher_snapshot_training_rows(
+                    trace,
+                    teacher_snapshot_idx,
+                    max_iter,
+                    tracer.graph_struct.max_vn_degree,
+                    tracer.graph_exact.m,
+                )
+            )
+            target_mask = (
+                trace.snapshots[teacher_snapshot_idx].hard.astype(np.uint8)
+                ^ np.asarray(teacher["corrected_bits"], dtype=np.uint8)
+            ).astype(np.float32)
+            bit_x, bit_y = bit_feature_matrix(
+                trace=trace,
+                snapshot_idx=teacher_snapshot_idx,
+                max_iter=max_iter,
+                max_vn_degree=tracer.graph_struct.max_vn_degree,
+                bits_per_symbol=int(nr["bits_per_symbol"]),
+                fft_size=int(nr["fft_size"]),
+                target_mask=target_mask,
+            )
+        else:
+            snapshot_rows.extend(
+                snapshot_training_rows(trace, max_iter, tracer.graph_struct.max_vn_degree, tracer.graph_exact.m)
+            )
+            oracle_idx = oracle_best_snapshot(trace)
+            bit_x, bit_y = bit_feature_matrix(
+                trace=trace,
+                snapshot_idx=oracle_idx,
+                max_iter=max_iter,
+                max_vn_degree=tracer.graph_struct.max_vn_degree,
+                bits_per_symbol=int(nr["bits_per_symbol"]),
+                fft_size=int(nr["fft_size"]),
+            )
+
         pos = np.flatnonzero(bit_y > 0.5)
         neg = np.flatnonzero(bit_y <= 0.5)
         if pos.size > 0:
