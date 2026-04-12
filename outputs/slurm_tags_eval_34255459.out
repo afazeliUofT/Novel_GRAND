@@ -1,5 +1,0 @@
-{
-  "status": "ok",
-  "n_jobs": 256,
-  "out_root": "/scratch/rsadve1/Novel_GRAND/outputs/fir_legacy_probe_default/outputs/fir_tags_grand_autotuned"
-}

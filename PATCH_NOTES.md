@@ -1,21 +1,28 @@
-# Novel_GRAND repair overlay
+# Novel_GRAND pipeline-fix overlay
 
-This overlay fixes the broken evaluation stage and adds a legacy-LDPC operating-point probe.
+This overlay fixes the current blockers that prevent a trustworthy end-to-end
+hybrid LDPC + TAGS-GRAND run from showing up in the repo outputs.
 
-## What it changes
+## Fixed issues
 
-- fixes PyTorch checkpoint loading in `novel_grand/models/training.py`
-- adds `novel_grand/scripts/probe_legacy.py`
-- adds `slurm/05_probe_legacy_tags_grand.sbatch` and `slurm/submit_legacy_probe.sh`
-- updates the Slurm scripts so a config path can be supplied through `NOVEL_GRAND_CONFIG`
-- updates `configs/fir_default.yaml` to a more plausible rescue-region SNR ladder
-- adds safe cleanup helpers under `tools/`
+1. **PyTorch checkpoint loading**
+   - `novel_grand/models/training.py` now loads legacy checkpoints safely under
+     PyTorch 2.6+ / 2.9.x by trying `weights_only=True` first and then falling
+     back to `weights_only=False` for trusted local artifacts.
+   - Newly saved bundles store normalization statistics as plain Python lists so
+     future loads work with `weights_only=True`.
 
-## Recommended usage
+2. **Pipeline config propagation**
+   - The collect / train / eval / report Slurm stages now honor
+     `NOVEL_GRAND_CONFIG` instead of hardcoding `configs/fir_default.yaml`.
+   - `slurm/submit_tags_grand_pipeline.sh` writes `outputs/_last_pipeline_run.json`
+     so downstream status checks know which experiment directory is expected.
 
-1. Run `bash tools/clean_tags_repo.sh`
-2. Run `bash tools/ensure_gitignore_patterns.sh`
-3. Run `sbatch slurm/00_smoke_tags_grand.sbatch`
-4. Run `bash slurm/submit_legacy_probe.sh`
-5. Inspect `outputs/fir_legacy_probe_default/reports/recommended_full_config.yaml`
-6. Run `bash slurm/submit_tags_grand_pipeline.sh outputs/fir_legacy_probe_default/reports/recommended_full_config.yaml`
+3. **Result-integrity visibility**
+   - `tools/check_pipeline_status.sh` now checks the actual run selected by the
+     pipeline and warns when train-shard SNRs do not match the selected config.
+
+4. **Repo cleanup**
+   - `tools/clean_tags_repo.sh` removes stale generated outputs, stale nested
+     `outputs/.../outputs/...` trees, old Slurm logs, editable metadata, and
+     overlay archives while preserving `.venv-fir` and probe logs.

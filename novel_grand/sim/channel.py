@@ -28,7 +28,7 @@ class NRSlotQAMLink:
             from sionna.phy.channel.tr38901.tdl import TDL
         except Exception as exc:  # pragma: no cover
             raise RuntimeError(
-                "Sionna imports failed. Activate /home/rsadve1/scratch/Novel_GRAND/.venv-fir first."
+                "Sionna imports failed. Activate the Novel_GRAND project venv first: source env/activate_fir.sh"
             ) from exc
 
         nr = cfg["nr"]

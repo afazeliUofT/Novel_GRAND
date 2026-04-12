@@ -87,7 +87,7 @@ def summarize_frames(
                 "avg_pattern_weight": float(g["pattern_weight"].mean()) if n_invoked_frames else 0.0,
                 "avg_selected_snapshot": float(g["selected_snapshot"].mean()) if n_invoked_frames else 0.0,
                 "avg_frontier_peak": float(g["frontier_peak"].mean()) if n_invoked_frames else 0.0,
-                # Net / whole-frame metrics (the correct way to compare a rescue decoder)
+                # Net / whole-frame metrics
                 "net_exact_success_rate": float(net_exact_successes / n_original_frames),
                 "net_valid_codeword_rate": float(net_valid_codewords / n_original_frames),
                 "net_undetected_error_rate": float(net_undetected_errors / n_original_frames),
@@ -104,9 +104,9 @@ def summarize_frames(
 
             for q in quantiles:
                 if queries.size:
-                    row[f"queries_q{int(100*q)}"] = float(np.quantile(queries, q))
+                    row[f"queries_q{int(100 * q)}"] = float(np.quantile(queries, q))
                 else:
-                    row[f"queries_q{int(100*q)}"] = 0.0
+                    row[f"queries_q{int(100 * q)}"] = 0.0
 
             out_rows.append(row)
 

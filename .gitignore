@@ -8,7 +8,22 @@ __pycache__/
 *.pyd
 *.so
 *.egg-info/
-
 # Local overlay archives
 Novel_GRAND_*overlay.zip
 Novel_GRAND_*package.zip
+# Novel_GRAND local environment
+# Python build/cache noise
+# Local package/archive files
+Novel_GRAND_*full*.zip
+# Transient smoke/probe/slurm logs
+probe_outputs/check_tags_package_*.log
+outputs/slurm_tags_*.out
+outputs/slurm_tags_*.err
+# Large generated artifacts not needed on GitHub
+outputs/_effective_code_cache/
+outputs/*/probe/shards/
+outputs/*/train/shards/
+outputs/*/eval/shards/
+outputs/*/eval/sampled_failures/
+outputs/*/models/*.pt
+outputs/*/models/*.pth

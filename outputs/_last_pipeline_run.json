@@ -1,0 +1,5 @@
+{
+  "config_path": "outputs/fir_legacy_probe_default/reports/recommended_full_config.yaml",
+  "experiment_name": "fir_tags_grand_autotuned",
+  "config_source": "probe_recommendation"
+}

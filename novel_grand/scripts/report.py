@@ -4,39 +4,22 @@ import argparse
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 from novel_grand.config import load_config, run_root
 from novel_grand.sim.aggregate import load_frame_rows, summarize_frames
-from novel_grand.utils.io import dataframe_to_csv, ensure_dir
 
 
-def _ordered_groupby(df: pd.DataFrame, col: str):
-    order = ["ldpc_only"] + sorted(x for x in df[col].unique() if x != "ldpc_only")
-    for key in order:
-        g = df[df[col] == key].sort_values("ebn0_db")
-        if not g.empty:
-            yield key, g
-
-
-def _plot_metric(
-    df_summary: pd.DataFrame,
-    y_col: str,
-    ylabel: str,
-    out_path: Path,
-    *,
-    title: str | None = None,
-    exclude_ldpc: bool = False,
-) -> None:
+def _line_plot(df: pd.DataFrame, x: str, y: str, out_path: Path, ylabel: str, include_ldpc: bool = True) -> None:
     plt.figure()
-    for decoder, g in _ordered_groupby(df_summary, "decoder"):
-        if exclude_ldpc and decoder == "ldpc_only":
+    for decoder, g in df.groupby("decoder", sort=True):
+        if not include_ldpc and decoder == "ldpc_only":
             continue
-        plt.plot(g["ebn0_db"], g[y_col], marker="o", label=decoder)
+        gg = g.sort_values(x)
+        plt.plot(gg[x], gg[y], marker="o", label=decoder)
     plt.xlabel("Eb/N0 [dB]")
     plt.ylabel(ylabel)
-    if title:
-        plt.title(title)
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
@@ -44,103 +27,97 @@ def _plot_metric(
     plt.close()
 
 
-def _plot_net_fer(df_summary: pd.DataFrame, out_path: Path) -> None:
-    plt.figure()
-    for decoder, g in _ordered_groupby(df_summary, "decoder"):
-        y = g["net_frame_error_rate"].clip(lower=1e-12)
-        plt.semilogy(g["ebn0_db"], y, marker="o", label=decoder)
-    plt.xlabel("Eb/N0 [dB]")
-    plt.ylabel("Net frame error rate")
-    plt.grid(True, which="both")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(out_path, dpi=180)
-    plt.close()
 
-
-def _plot_gain_vs_ldpc(df_summary: pd.DataFrame, out_path: Path) -> None:
-    ldpc = df_summary[df_summary["decoder"] == "ldpc_only"][["ebn0_db", "net_exact_success_rate"]].rename(
-        columns={"net_exact_success_rate": "ldpc_net_exact_success_rate"}
-    )
-    merged = df_summary.merge(ldpc, on="ebn0_db", how="left")
-    merged["net_success_gain_over_ldpc"] = (
-        merged["net_exact_success_rate"] - merged["ldpc_net_exact_success_rate"]
-    )
-
-    plt.figure()
-    for decoder, g in _ordered_groupby(merged, "decoder"):
-        if decoder == "ldpc_only":
+def _gain_over_ldpc(df_summary: pd.DataFrame) -> pd.DataFrame:
+    rows = []
+    for ebn0_db, g in df_summary.groupby("ebn0_db", sort=True):
+        ldpc_row = g[g["decoder"] == "ldpc_only"]
+        if ldpc_row.empty:
             continue
-        plt.plot(g["ebn0_db"], g["net_success_gain_over_ldpc"], marker="o", label=decoder)
-    plt.xlabel("Eb/N0 [dB]")
-    plt.ylabel("Net exact-success gain over legacy LDPC")
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(out_path, dpi=180)
-    plt.close()
+        ldpc_net = float(ldpc_row.iloc[0]["net_exact_success_rate"])
+        for _, row in g.iterrows():
+            rows.append(
+                {
+                    "ebn0_db": float(ebn0_db),
+                    "decoder": str(row["decoder"]),
+                    "net_success_gain_over_ldpc": float(row["net_exact_success_rate"] - ldpc_net),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+
+def _query_cap_hit_rates(frame_df: pd.DataFrame) -> pd.DataFrame:
+    rows = []
+    if frame_df.empty:
+        return pd.DataFrame()
+    for (ebn0_db, decoder), g in frame_df.groupby(["ebn0_db", "decoder"], sort=True):
+        qmax = float(g["queries"].max()) if len(g) else 0.0
+        hit_rate = float((g["queries"] >= qmax).mean()) if qmax > 0 else 0.0
+        rows.append(
+            {
+                "ebn0_db": float(ebn0_db),
+                "decoder": str(decoder),
+                "query_cap_hit_rate": hit_rate,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+
+def _primitive_usage(frame_df: pd.DataFrame) -> pd.DataFrame:
+    rows = []
+    if frame_df.empty:
+        return pd.DataFrame()
+    for (ebn0_db, decoder), g in frame_df.groupby(["ebn0_db", "decoder"], sort=True):
+        bit = 0
+        group = 0
+        guard = 0
+        fallback = 0
+        ai = 0
+        n = len(g)
+        for s in g["primitive_kinds"].fillna(""):
+            text = str(s)
+            bit += int("bit" in text)
+            group += int("group" in text)
+            guard += int("guard_" in text)
+            fallback += int("fallback_" in text)
+            ai += int("ai_rescue" in text)
+        rows.append(
+            {
+                "ebn0_db": float(ebn0_db),
+                "decoder": str(decoder),
+                "bit_primitive_row_rate": bit / max(n, 1),
+                "group_primitive_row_rate": group / max(n, 1),
+                "guard_row_rate": guard / max(n, 1),
+                "fallback_row_rate": fallback / max(n, 1),
+                "ai_row_rate": ai / max(n, 1),
+            }
+        )
+    return pd.DataFrame(rows)
+
 
 
 def _write_markdown(df_summary: pd.DataFrame, out_dir: Path) -> None:
-    lines: list[str] = []
-    lines.append("# TAGS-GRAND-Lite report")
+    lines = []
+    lines.append("# TAGS-GRAND report")
     lines.append("")
     lines.append("## Interpretation")
+    lines.append("For rescue decoders, **conditional** success means success only on frames that legacy LDPC had already failed.")
+    lines.append("**Net** success folds those rescues back into the whole-frame success rate and is the correct metric for comparing against legacy LDPC.")
     lines.append("")
-    lines.append(
-        "For rescue decoders, **conditional** success means success only on frames that "
-        "legacy LDPC had already failed. **Net** success folds those rescues back into the "
-        "whole-frame success rate and is the correct metric for comparing against legacy LDPC."
-    )
-    lines.append("")
-
-    best_net = (
-        df_summary.sort_values(["net_exact_success_rate", "decoder"], ascending=[False, True])
-        .groupby("ebn0_db", as_index=False)
-        .first()
-    )
-    dataframe_to_csv(best_net, out_dir / "best_decoder_by_ebn0.csv")
-
     lines.append("## Best decoder by Eb/N0 (net exact success)")
-    lines.append("")
-    for _, row in best_net.iterrows():
+    for ebn0_db, g in df_summary.groupby("ebn0_db", sort=True):
+        best = g.sort_values(["net_exact_success_rate", "avg_queries_per_original_frame"], ascending=[False, True]).iloc[0]
         lines.append(
-            f"- `Eb/N0={row['ebn0_db']:.2f} dB`: **{row['decoder']}** "
-            f"with net exact success `{row['net_exact_success_rate']:.6f}` "
-            f"and average queries per original frame `{row['avg_queries_per_original_frame']:.2f}`."
+            f"- `Eb/N0={ebn0_db:.2f} dB`: **{best['decoder']}** with net exact success `{best['net_exact_success_rate']:.6f}` "
+            f"and average queries per original frame `{best['avg_queries_per_original_frame']:.2f}`."
         )
     lines.append("")
-
-    lines.append("## Best conditional rescue decoder")
-    lines.append("")
-    rescue_only = df_summary[df_summary["decoder"] != "ldpc_only"].copy()
-    if rescue_only.empty:
-        lines.append("- No rescue-decoder rows were found.")
-    else:
-        best_cond = (
-            rescue_only.sort_values(
-                ["conditional_exact_success_rate", "decoder"],
-                ascending=[False, True],
-            )
-            .groupby("ebn0_db", as_index=False)
-            .first()
-        )
-        dataframe_to_csv(best_cond, out_dir / "best_rescue_decoder_by_ebn0.csv")
-        for _, row in best_cond.iterrows():
-            lines.append(
-                f"- `Eb/N0={row['ebn0_db']:.2f} dB`: **{row['decoder']}** "
-                f"conditional rescue success `{row['conditional_exact_success_rate']:.6f}`, "
-                f"queries on invoked frames `{row['avg_queries_on_invoked_frames']:.2f}`."
-            )
-    lines.append("")
-
-    lines.append("## Generated files")
-    lines.append("")
+    lines.append("## Files")
     for name in [
-        "frame_rows_all.csv",
         "summary_eval.csv",
-        "best_decoder_by_ebn0.csv",
-        "best_rescue_decoder_by_ebn0.csv",
+        "frame_rows_all.csv",
         "net_exact_success_rate_vs_ebn0.png",
         "net_frame_error_rate_vs_ebn0.png",
         "conditional_rescue_success_rate_vs_ebn0.png",
@@ -149,9 +126,13 @@ def _write_markdown(df_summary: pd.DataFrame, out_dir: Path) -> None:
         "net_success_gain_over_ldpc_vs_ebn0.png",
         "avg_selected_snapshot_vs_ebn0.png",
         "avg_frontier_peak_vs_ebn0.png",
+        "query_cap_hit_rate_vs_ebn0.png",
+        "primitive_usage_summary.csv",
+        "query_cap_hit_summary.csv",
     ]:
         lines.append(f"- `{name}`")
     (out_dir / "summary.md").write_text("\n".join(lines), encoding="utf-8")
+
 
 
 def main() -> None:
@@ -161,68 +142,42 @@ def main() -> None:
 
     cfg = load_config(args.config)
     out_root = run_root(cfg)
-    report_dir = ensure_dir(out_root / "reports")
+    report_dir = out_root / "reports"
+    eval_dir = out_root / "eval" / "shards"
+    report_dir.mkdir(parents=True, exist_ok=True)
 
-    frame_paths = sorted((out_root / "eval" / "shards").glob("frame_rows_*.jsonl"))
-    if not frame_paths:
-        raise FileNotFoundError(
-            "No evaluation shard jsonl files found. Run evaluate first."
-        )
+    frame_paths = sorted(str(p) for p in eval_dir.glob("frame_rows_worker*_snr*.jsonl"))
+    frame_df = load_frame_rows(frame_paths)
+    if frame_df.empty:
+        raise RuntimeError(f"No evaluation rows found under {eval_dir}")
 
-    df = load_frame_rows(frame_paths)
-    df_summary = summarize_frames(df, quantiles=tuple(cfg["report"]["query_quantiles"]))
+    frame_df = frame_df.sort_values(["ebn0_db", "decoder", "worker_id", "frame_idx"]).reset_index(drop=True)
+    frame_df.to_csv(report_dir / "frame_rows_all.csv", index=False)
 
-    dataframe_to_csv(df, report_dir / "frame_rows_all.csv")
-    dataframe_to_csv(df_summary, report_dir / "summary_eval.csv")
+    quantiles = tuple(float(q) for q in cfg.get("report", {}).get("query_quantiles", [0.5, 0.9, 0.99]))
+    df_summary = summarize_frames(frame_df, quantiles=quantiles)
+    df_summary = df_summary.sort_values(["decoder", "ebn0_db"]).reset_index(drop=True)
+    df_summary.to_csv(report_dir / "summary_eval.csv", index=False)
 
-    _plot_metric(
-        df_summary,
-        "net_exact_success_rate",
-        "Net exact success rate",
-        report_dir / "net_exact_success_rate_vs_ebn0.png",
-    )
-    _plot_net_fer(df_summary, report_dir / "net_frame_error_rate_vs_ebn0.png")
-    _plot_metric(
-        df_summary,
-        "conditional_exact_success_rate",
-        "Conditional rescue success rate",
-        report_dir / "conditional_rescue_success_rate_vs_ebn0.png",
-        exclude_ldpc=True,
-    )
-    _plot_metric(
-        df_summary,
-        "avg_queries_on_invoked_frames",
-        "Average queries on invoked frames",
-        report_dir / "avg_queries_on_invoked_frames_vs_ebn0.png",
-        exclude_ldpc=True,
-    )
-    _plot_metric(
-        df_summary,
-        "avg_queries_per_original_frame",
-        "Average queries per original frame",
-        report_dir / "avg_queries_per_original_frame_vs_ebn0.png",
-    )
-    _plot_gain_vs_ldpc(
-        df_summary,
-        report_dir / "net_success_gain_over_ldpc_vs_ebn0.png",
-    )
-    _plot_metric(
-        df_summary,
-        "avg_selected_snapshot",
-        "Average selected snapshot",
-        report_dir / "avg_selected_snapshot_vs_ebn0.png",
-    )
-    _plot_metric(
-        df_summary,
-        "avg_frontier_peak",
-        "Average search frontier peak",
-        report_dir / "avg_frontier_peak_vs_ebn0.png",
-        exclude_ldpc=True,
-    )
+    df_gain = _gain_over_ldpc(df_summary)
+    df_gain.to_csv(report_dir / "net_success_gain_over_ldpc.csv", index=False)
+    df_qhit = _query_cap_hit_rates(frame_df)
+    df_qhit.to_csv(report_dir / "query_cap_hit_summary.csv", index=False)
+    df_pusage = _primitive_usage(frame_df)
+    df_pusage.to_csv(report_dir / "primitive_usage_summary.csv", index=False)
+
+    _line_plot(df_summary, "ebn0_db", "net_exact_success_rate", report_dir / "net_exact_success_rate_vs_ebn0.png", "Net exact success rate")
+    _line_plot(df_summary, "ebn0_db", "net_frame_error_rate", report_dir / "net_frame_error_rate_vs_ebn0.png", "Net frame error rate")
+    _line_plot(df_summary, "ebn0_db", "conditional_exact_success_rate", report_dir / "conditional_rescue_success_rate_vs_ebn0.png", "Conditional rescue success rate")
+    _line_plot(df_summary, "ebn0_db", "avg_queries_on_invoked_frames", report_dir / "avg_queries_on_invoked_frames_vs_ebn0.png", "Avg queries on invoked frames", include_ldpc=False)
+    _line_plot(df_summary, "ebn0_db", "avg_queries_per_original_frame", report_dir / "avg_queries_per_original_frame_vs_ebn0.png", "Avg queries per original frame", include_ldpc=False)
+    _line_plot(df_gain, "ebn0_db", "net_success_gain_over_ldpc", report_dir / "net_success_gain_over_ldpc_vs_ebn0.png", "Net success gain over LDPC", include_ldpc=False)
+    _line_plot(df_summary, "ebn0_db", "avg_selected_snapshot", report_dir / "avg_selected_snapshot_vs_ebn0.png", "Avg selected snapshot")
+    _line_plot(df_summary, "ebn0_db", "avg_frontier_peak", report_dir / "avg_frontier_peak_vs_ebn0.png", "Avg frontier peak", include_ldpc=False)
+    if not df_qhit.empty:
+        _line_plot(df_qhit, "ebn0_db", "query_cap_hit_rate", report_dir / "query_cap_hit_rate_vs_ebn0.png", "Query-cap hit rate", include_ldpc=False)
 
     _write_markdown(df_summary, report_dir)
-
-    print(df_summary.to_string(index=False))
 
 
 if __name__ == "__main__":

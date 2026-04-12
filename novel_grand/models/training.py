@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import inspect
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -27,44 +26,31 @@ def _standardize_apply(x: np.ndarray, mean: np.ndarray, std: np.ndarray) -> np.n
 
 
 
-def _as_numpy(x) -> np.ndarray:
+def _to_numpy(x) -> np.ndarray:
     if isinstance(x, np.ndarray):
-        return x.astype(np.float32, copy=False)
-    if torch.is_tensor(x):
-        return x.detach().cpu().numpy().astype(np.float32, copy=False)
+        return x.astype(np.float32)
+    if isinstance(x, torch.Tensor):
+        return x.detach().cpu().numpy().astype(np.float32)
     return np.asarray(x, dtype=np.float32)
 
 
 
-def _torch_load_bundle(path: str | Path, device: str = "cpu"):
-    """Load checkpoints robustly across PyTorch versions.
+def _safe_torch_load(path: str | Path, device: str = "cpu"):
+    """Load local checkpoints robustly across PyTorch weights_only defaults.
 
-    PyTorch >=2.6 switched the default of ``weights_only`` to ``True``.
-    Older bundles in this repo stored NumPy arrays, which makes a strict
-    weights-only load fail. We first try the modern safe path. If that fails,
-    we retry with ``weights_only=False`` for trusted local checkpoints.
+    PyTorch 2.6+ defaults torch.load(..., weights_only=True), which rejects
+    checkpoint bundles that include NumPy arrays. These model bundles are
+    trusted local artifacts produced by this repo, so falling back to
+    weights_only=False is acceptable.
     """
     path = Path(path)
-    load_kwargs = {"map_location": device}
-
     try:
-        sig = inspect.signature(torch.load)
-        has_weights_only = "weights_only" in sig.parameters
+        return torch.load(path, map_location=device, weights_only=True)
+    except TypeError:
+        # Older torch without weights_only support.
+        return torch.load(path, map_location=device)
     except Exception:
-        has_weights_only = False
-
-    first_exc = None
-    if has_weights_only:
-        try:
-            return torch.load(path, weights_only=True, **load_kwargs)
-        except Exception as exc:  # pragma: no cover - exercised on FIR
-            first_exc = exc
-            try:
-                return torch.load(path, weights_only=False, **load_kwargs)
-            except Exception:
-                raise first_exc
-
-    return torch.load(path, **load_kwargs)
+        return torch.load(path, map_location=device, weights_only=False)
 
 
 @dataclass
@@ -100,7 +86,7 @@ class BitRankerModel:
 
     def predict_prob(self, x: np.ndarray) -> np.ndarray:
         logits = self.predict_logits(x)
-        return 1.0 / (1.0 + np.exp(-logits))
+        return (1.0 / (1.0 + np.exp(-logits))).astype(np.float32)
 
 
 
@@ -115,28 +101,31 @@ def _fit_common(
     device: str,
     task: str,
 ) -> Tuple[nn.Module, np.ndarray, np.ndarray, Dict[str, float]]:
+    if x.ndim != 2:
+        raise ValueError(f"Expected 2-D features, got shape={x.shape}")
+    x = x.astype(np.float32)
+    y = y.astype(np.float32).reshape(-1)
+    if len(x) != len(y):
+        raise ValueError(f"Feature/label length mismatch: {len(x)} vs {len(y)}")
+
     mean, std = _standardize_fit(x)
     x_std = _standardize_apply(x, mean, std)
 
     x_t = torch.from_numpy(x_std)
     y_t = torch.from_numpy(y.astype(np.float32)).reshape(-1, 1)
     dataset = TensorDataset(x_t, y_t)
-
     n_total = len(dataset)
-    n_val = max(1, int(0.1 * n_total))
-    n_train = max(1, n_total - n_val)
-    train_ds, val_ds = random_split(
-        dataset,
-        [n_train, n_val],
-        generator=torch.Generator().manual_seed(1234),
-    )
+    n_val = max(1, int(round(0.1 * n_total))) if n_total > 1 else 1
+    n_train = max(n_total - n_val, 1)
+    if n_train + n_val > n_total:
+        n_val = n_total - n_train
+    train_ds, val_ds = random_split(dataset, [n_train, n_val], generator=torch.Generator().manual_seed(1234))
 
     train_loader = DataLoader(train_ds, batch_size=min(batch_size, n_train), shuffle=True)
-    val_loader = DataLoader(val_ds, batch_size=min(batch_size, n_val), shuffle=False)
+    val_loader = DataLoader(val_ds, batch_size=min(batch_size, max(n_val, 1)), shuffle=False)
 
     model = TabularMLP(x.shape[1], hidden_dims).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
-
     if task == "regression":
         loss_fn = nn.MSELoss()
     else:
@@ -170,7 +159,6 @@ def _fit_common(
                 val_loss += float(loss.item()) * bs
                 n_seen += bs
         val_loss /= max(n_seen, 1)
-
         if val_loss < best_val:
             best_val = val_loss
             best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
@@ -179,9 +167,9 @@ def _fit_common(
     model.load_state_dict(best_state)
     return model, mean, std, {
         "best_val_loss": best_val,
-        "n_total": n_total,
-        "n_train": n_train,
-        "n_val": n_val,
+        "n_total": int(n_total),
+        "n_train": int(n_train),
+        "n_val": int(n_val),
     }
 
 
@@ -219,48 +207,43 @@ def fit_bit_ranker(x, y, cfg, device="cpu"):
 
 
 def save_model_bundle(path: str | Path, model: nn.Module, mean: np.ndarray, std: np.ndarray, meta: Dict) -> None:
-    """Save a PyTorch-safe checkpoint bundle.
-
-    The key change relative to the earlier version is that the normalization
-    vectors are stored as tensors rather than NumPy arrays, which keeps the
-    bundle compatible with ``weights_only=True`` loading.
-    """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    bundle = {
-        "format_version": 2,
-        "state_dict": {k: v.detach().cpu().clone() for k, v in model.state_dict().items()},
-        "mean": torch.as_tensor(mean, dtype=torch.float32),
-        "std": torch.as_tensor(std, dtype=torch.float32),
-        "meta": dict(meta),
-    }
-    torch.save(bundle, path)
+    torch.save(
+        {
+            "state_dict": model.state_dict(),
+            "mean": torch.from_numpy(_to_numpy(mean)),
+            "std": torch.from_numpy(_to_numpy(std)),
+            "meta": meta,
+        },
+        path,
+    )
 
 
 
 def load_snapshot_selector(path: str | Path, hidden_dims, in_dim: int, device: str = "cpu") -> SnapshotSelectorModel:
-    ckpt = _torch_load_bundle(path, device=device)
+    ckpt = _safe_torch_load(path, device=device)
     model = TabularMLP(in_dim, hidden_dims).to(device)
     model.load_state_dict(ckpt["state_dict"])
     model.eval()
     return SnapshotSelectorModel(
         model=model,
-        mean=_as_numpy(ckpt["mean"]),
-        std=_as_numpy(ckpt["std"]),
+        mean=_to_numpy(ckpt["mean"]),
+        std=_to_numpy(ckpt["std"]),
         device=device,
     )
 
 
 
 def load_bit_ranker(path: str | Path, hidden_dims, in_dim: int, device: str = "cpu") -> BitRankerModel:
-    ckpt = _torch_load_bundle(path, device=device)
+    ckpt = _safe_torch_load(path, device=device)
     model = TabularMLP(in_dim, hidden_dims).to(device)
     model.load_state_dict(ckpt["state_dict"])
     model.eval()
     return BitRankerModel(
         model=model,
-        mean=_as_numpy(ckpt["mean"]),
-        std=_as_numpy(ckpt["std"]),
+        mean=_to_numpy(ckpt["mean"]),
+        std=_to_numpy(ckpt["std"]),
         device=device,
     )
 

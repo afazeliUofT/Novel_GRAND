@@ -7,6 +7,6 @@
   "ebn0_db": 6.0,
   "legacy_success": false,
   "stop_iteration": 8,
-  "final_syndrome_weight": 113,
+  "final_syndrome_weight": 125,
   "tx_codeword_exact_syndrome_weight": 0
 }
