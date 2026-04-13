@@ -82,6 +82,26 @@ def _gain_over_ldpc(df_summary: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _gain_over_reference(df_summary: pd.DataFrame, ref_decoder: str, out_col: str) -> pd.DataFrame:
+    rows = []
+    for ebn0_db, g in df_summary.groupby("ebn0_db", sort=True):
+        ref_row = g[g["decoder"] == ref_decoder]
+        if ref_row.empty:
+            continue
+        ref_net = float(ref_row.iloc[0]["net_exact_success_rate"])
+        ref_q = float(ref_row.iloc[0].get("avg_queries_per_original_frame", 0.0))
+        for _, row in g.iterrows():
+            rows.append(
+                {
+                    "ebn0_db": float(ebn0_db),
+                    "decoder": str(row["decoder"]),
+                    out_col: float(row["net_exact_success_rate"] - ref_net),
+                    "extra_queries_vs_reference": float(row.get("avg_queries_per_original_frame", 0.0) - ref_q),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
 
 def _gap_to_oracle(df_summary: pd.DataFrame) -> pd.DataFrame:
     rows = []
@@ -328,6 +348,8 @@ def _write_markdown(
         "avg_queries_per_original_frame_vs_ebn0.png",
         "net_success_gain_over_ldpc.csv",
         "net_success_gain_over_ldpc_vs_ebn0.png",
+        "net_success_gain_over_final_llr.csv",
+        "net_success_gain_over_final_llr_vs_ebn0.png",
         "gap_to_oracle_summary.csv",
         "net_gap_to_oracle_vs_ebn0.png",
         "snapshot_gap_to_oracle_vs_ebn0.png",
@@ -385,6 +407,9 @@ def main() -> None:
 
     df_gain = _gain_over_ldpc(df_summary)
     df_gain.to_csv(report_dir / "net_success_gain_over_ldpc.csv", index=False)
+    df_gain_final = _gain_over_reference(df_summary, "final_llr_grand", "net_success_gain_over_final_llr")
+    if not df_gain_final.empty:
+        df_gain_final.to_csv(report_dir / "net_success_gain_over_final_llr.csv", index=False)
     df_gap = _gap_to_oracle(df_summary)
     df_gap.to_csv(report_dir / "gap_to_oracle_summary.csv", index=False)
     df_eff = _query_efficiency(df_gain, df_summary)
@@ -406,6 +431,8 @@ def main() -> None:
     _line_plot(df_summary, "ebn0_db", "avg_queries_on_invoked_frames", report_dir / "avg_queries_on_invoked_frames_vs_ebn0.png", "Avg queries on invoked frames", include_ldpc=False)
     _line_plot(df_summary, "ebn0_db", "avg_queries_per_original_frame", report_dir / "avg_queries_per_original_frame_vs_ebn0.png", "Avg queries per original frame", include_ldpc=False)
     _line_plot(df_gain, "ebn0_db", "net_success_gain_over_ldpc", report_dir / "net_success_gain_over_ldpc_vs_ebn0.png", "Net success gain over LDPC", include_ldpc=False)
+    if not df_gain_final.empty:
+        _line_plot(df_gain_final, "ebn0_db", "net_success_gain_over_final_llr", report_dir / "net_success_gain_over_final_llr_vs_ebn0.png", "Net success gain over final LLR GRAND", include_ldpc=False)
     if not df_gap.empty:
         _line_plot(df_gap, "ebn0_db", "net_success_gap_to_oracle", report_dir / "net_gap_to_oracle_vs_ebn0.png", "Net success gap to oracle", include_ldpc=False)
         _line_plot(df_gap, "ebn0_db", "selected_snapshot_gap_to_oracle", report_dir / "snapshot_gap_to_oracle_vs_ebn0.png", "Snapshot gap to oracle", include_ldpc=False)

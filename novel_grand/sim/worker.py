@@ -7,7 +7,7 @@ import numpy as np
 import torch
 
 from novel_grand.config import run_root
-from novel_grand.grand.baselines import run_baseline, run_teacher_best_snapshot_llr
+from novel_grand.grand.baselines import run_baseline, run_baseline_detailed, run_teacher_best_snapshot_llr
 from novel_grand.grand.tags_lite import (
     run_selector_blend_grand,
     run_selector_llr_grand,
@@ -78,8 +78,18 @@ def collect_train_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
         if trace.legacy_success:
             continue
 
-        # Teacher-aligned targets: use the strongest snapshot-aware LLR teacher.
-        teacher = run_teacher_best_snapshot_llr(trace, tracer.graph_exact, cfg)
+        # The main TAGS path is invoked only after the strong final-LLR guard fails.
+        # Align the training distribution to those post-guard hard cases instead of all
+        # legacy-LDPC failures.
+        guard = run_baseline_detailed("final_llr_grand", trace, tracer.graph_exact, cfg)
+        if bool(guard.get("success_exact", False)):
+            continue
+
+        ai_teacher_cap = int(cfg["grand"].get("ai_teacher_cap", cfg["grand"].get("rescue_bonus_cap", cfg["grand"]["query_cap"])))
+
+        # Teacher-aligned targets: use the strongest snapshot-aware LLR teacher
+        # under the same budget scale that the AI stage receives at inference.
+        teacher = run_teacher_best_snapshot_llr(trace, tracer.graph_exact, cfg, query_cap=ai_teacher_cap)
         teacher_exact = bool(teacher.get("success_exact", False))
         teacher_snapshot_idx = int(teacher.get("selected_snapshot_index", oracle_best_snapshot(trace)))
 
@@ -107,6 +117,9 @@ def collect_train_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
                 target_mask=target_mask,
             )
         else:
+            # Keep hard negatives from post-guard frames so the selector/bit-ranker
+            # still learn what unresolved rescue cases look like, but do not train on
+            # easier guard-solvable failures.
             snapshot_rows.extend(
                 snapshot_training_rows(trace, max_iter, tracer.graph_struct.max_vn_degree, tracer.graph_exact.m)
             )

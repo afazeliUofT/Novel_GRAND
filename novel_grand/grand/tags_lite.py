@@ -175,12 +175,23 @@ def _bit_scores_for_snapshot(
     unsat = snapshot.unsat_deg.astype(np.float32)
     flips = snapshot.cumulative_flip_count.astype(np.float32)
 
-    # After teacher-aligned training, the learned probability should dominate.
+    # The v4 results showed that letting the learned bit model dominate harms
+    # ordering versus a conservative LLR-driven rescue. Blend the model with
+    # structural signals, but keep the score anchored in the selected-snapshot LLRs.
+    gcfg = cfg.get("grand", {})
+    w_bit = float(gcfg.get("bit_model_main_weight", 0.30))
+    w_llr = float(gcfg.get("llr_model_main_weight", 0.35))
+    w_ch = float(gcfg.get("channel_model_main_weight", 0.15))
+    w_unsat = float(gcfg.get("unsat_model_main_weight", 0.12))
+    w_flip = float(gcfg.get("flip_model_main_weight", 0.08))
+    total = max(w_bit + w_llr + w_ch + w_unsat + w_flip, 1e-6)
+    w_bit, w_llr, w_ch, w_unsat, w_flip = [w / total for w in (w_bit, w_llr, w_ch, w_unsat, w_flip)]
     scores = (
-        0.62 * _rank01(bit_prob)
-        + 0.20 * _rank01(inv_abs_post)
-        + 0.10 * _rank01(inv_abs_ch)
-        + 0.08 * _rank01(unsat + 0.20 * flips)
+        w_bit * _rank01(bit_prob)
+        + w_llr * _rank01(inv_abs_post)
+        + w_ch * _rank01(inv_abs_ch)
+        + w_unsat * _rank01(unsat)
+        + w_flip * _rank01(flips)
     ).astype(np.float32)
     return bit_prob, scores
 

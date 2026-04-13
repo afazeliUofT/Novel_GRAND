@@ -45,7 +45,7 @@ def _individual_primitives(graph: TannerGraph, scores: np.ndarray, topk: int) ->
     return out
 
 
-def _run_search(graph: TannerGraph, snapshot, scores: np.ndarray, cfg) -> SearchResult:
+def _run_search(graph: TannerGraph, snapshot, scores: np.ndarray, cfg, *, query_cap: int | None = None) -> SearchResult:
     gcfg = cfg["grand"]
     prims = _individual_primitives(graph, scores, int(gcfg["topk_bits"]))
     return search_exact_syndrome(
@@ -53,7 +53,7 @@ def _run_search(graph: TannerGraph, snapshot, scores: np.ndarray, cfg) -> Search
         hard_bits=snapshot.hard,
         syndrome_mask=snapshot.syndrome_mask,
         primitives=prims,
-        query_cap=int(gcfg["query_cap"]),
+        query_cap=int(gcfg["query_cap"] if query_cap is None else query_cap),
         max_primitives_in_pattern=int(gcfg["max_primitives_in_pattern"]),
         expand_width=int(gcfg["search_expand_width"]),
         overlap_penalty=float(gcfg["overlap_penalty"]),
@@ -85,7 +85,7 @@ def _format_result(trace: TraceResult, graph: TannerGraph, snapshot, snap_idx: i
     return out, artifacts
 
 
-def _baseline_core(name: str, trace: TraceResult, graph: TannerGraph, cfg) -> Tuple[Dict, Dict]:
+def _baseline_core(name: str, trace: TraceResult, graph: TannerGraph, cfg, *, query_cap: int | None = None) -> Tuple[Dict, Dict]:
     if name == "final_llr_grand":
         snap_idx = len(trace.snapshots) - 1
         scores = llr_risk(trace.snapshots[snap_idx])
@@ -102,23 +102,23 @@ def _baseline_core(name: str, trace: TraceResult, graph: TannerGraph, cfg) -> Tu
         raise ValueError(f"Unknown baseline {name}")
 
     snapshot = trace.snapshots[snap_idx]
-    res = _run_search(graph, snapshot, scores, cfg)
+    res = _run_search(graph, snapshot, scores, cfg, query_cap=query_cap)
     return _format_result(trace, graph, snapshot, snap_idx, res, cfg, name)
 
 
-def run_baseline(name: str, trace: TraceResult, graph: TannerGraph, cfg) -> Dict:
-    out, _ = _baseline_core(name, trace, graph, cfg)
+def run_baseline(name: str, trace: TraceResult, graph: TannerGraph, cfg, *, query_cap: int | None = None) -> Dict:
+    out, _ = _baseline_core(name, trace, graph, cfg, query_cap=query_cap)
     return out
 
 
-def run_baseline_detailed(name: str, trace: TraceResult, graph: TannerGraph, cfg) -> Dict:
-    out, artifacts = _baseline_core(name, trace, graph, cfg)
+def run_baseline_detailed(name: str, trace: TraceResult, graph: TannerGraph, cfg, *, query_cap: int | None = None) -> Dict:
+    out, artifacts = _baseline_core(name, trace, graph, cfg, query_cap=query_cap)
     detailed = dict(out)
     detailed.update(artifacts)
     return detailed
 
 
-def run_teacher_best_snapshot_llr(trace: TraceResult, graph: TannerGraph, cfg) -> Dict:
+def run_teacher_best_snapshot_llr(trace: TraceResult, graph: TannerGraph, cfg, *, query_cap: int | None = None) -> Dict:
     """Training-time teacher: choose the best LLR-ordered snapshot under budget.
 
     This is aligned with the actual rescue objective, unlike the raw-Hamming
@@ -129,7 +129,7 @@ def run_teacher_best_snapshot_llr(trace: TraceResult, graph: TannerGraph, cfg) -
     best_art = None
     best_key = None
     for snap_idx, snapshot in enumerate(trace.snapshots):
-        res = _run_search(graph, snapshot, llr_risk(snapshot), cfg)
+        res = _run_search(graph, snapshot, llr_risk(snapshot), cfg, query_cap=query_cap)
         out, art = _format_result(trace, graph, snapshot, snap_idx, res, cfg, "teacher_best_snapshot_llr")
         key = (
             0 if out["success_exact"] else 1,

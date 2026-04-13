@@ -12,18 +12,18 @@ For rescue decoders, **conditional** success means success only on frames that l
 - `Eb/N0=14.00 dB`: **oracle_best_llr** with net exact success `0.963938` and average queries per original frame `182.28`.
 
 ## TAGS stage contribution (conditional on LDPC-detected failures)
-- `Eb/N0=10.00 dB`: guard `0.150224`, ai `0.000641`, fallback `0.007687`, fail `0.841448`.
-- `Eb/N0=11.00 dB`: guard `0.135840`, ai `0.000000`, fallback `0.007519`, fail `0.856642`.
-- `Eb/N0=12.00 dB`: guard `0.145251`, ai `0.001397`, fallback `0.003492`, fail `0.849860`.
-- `Eb/N0=13.00 dB`: guard `0.169458`, ai `0.000985`, fallback `0.005911`, fail `0.823645`.
-- `Eb/N0=14.00 dB`: guard `0.226018`, ai `0.002628`, fallback `0.006570`, fail `0.764783`.
+- `Eb/N0=10.00 dB`: guard `0.150224`, ai `0.000641`, fallback `0.007047`, fail `0.842088`.
+- `Eb/N0=11.00 dB`: guard `0.135840`, ai `0.000501`, fallback `0.006015`, fail `0.857644`.
+- `Eb/N0=12.00 dB`: guard `0.145251`, ai `0.000698`, fallback `0.004190`, fail `0.849860`.
+- `Eb/N0=13.00 dB`: guard `0.169458`, ai `0.000985`, fallback `0.004926`, fail `0.824631`.
+- `Eb/N0=14.00 dB`: guard `0.226018`, ai `0.000000`, fallback `0.005256`, fail `0.768725`.
 
 ## TAGS stage visit rates
 - `Eb/N0=10.00 dB`: guard visited `1.000000`, ai visited `0.849776`, fallback visited `0.849135`.
-- `Eb/N0=11.00 dB`: guard visited `1.000000`, ai visited `0.864160`, fallback visited `0.864160`.
-- `Eb/N0=12.00 dB`: guard visited `1.000000`, ai visited `0.854749`, fallback visited `0.853352`.
+- `Eb/N0=11.00 dB`: guard visited `1.000000`, ai visited `0.864160`, fallback visited `0.863659`.
+- `Eb/N0=12.00 dB`: guard visited `1.000000`, ai visited `0.854749`, fallback visited `0.854050`.
 - `Eb/N0=13.00 dB`: guard visited `1.000000`, ai visited `0.830542`, fallback visited `0.829557`.
-- `Eb/N0=14.00 dB`: guard visited `1.000000`, ai visited `0.773982`, fallback visited `0.771353`.
+- `Eb/N0=14.00 dB`: guard visited `1.000000`, ai visited `0.773982`, fallback visited `0.773982`.
 
 ## Warnings
 - At least one rescue decoder hit its query cap on 75%+ of invoked frames, indicating saturation.
@@ -39,6 +39,8 @@ For rescue decoders, **conditional** success means success only on frames that l
 - `avg_queries_per_original_frame_vs_ebn0.png`
 - `net_success_gain_over_ldpc.csv`
 - `net_success_gain_over_ldpc_vs_ebn0.png`
+- `net_success_gain_over_final_llr.csv`
+- `net_success_gain_over_final_llr_vs_ebn0.png`
 - `gap_to_oracle_summary.csv`
 - `net_gap_to_oracle_vs_ebn0.png`
 - `snapshot_gap_to_oracle_vs_ebn0.png`

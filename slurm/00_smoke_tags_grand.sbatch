@@ -5,7 +5,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=8G
-#SBATCH --time=00:20:00
+#SBATCH --time=00:10:00
 #SBATCH --output=outputs/slurm_tags_smoke_%j.out
 #SBATCH --error=outputs/slurm_tags_smoke_%j.err
 

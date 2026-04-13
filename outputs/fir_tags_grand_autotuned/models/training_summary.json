@@ -1,16 +1,16 @@
 {
-  "snapshot_rows": 48540,
-  "bit_rows": 1409139,
+  "snapshot_rows": 81300,
+  "bit_rows": 2182999,
   "snapshot_meta": {
-    "best_val_loss": 0.08385884937407011,
-    "n_total": 48540,
-    "n_train": 43686,
-    "n_val": 4854
+    "best_val_loss": 0.02957093449307177,
+    "n_total": 81300,
+    "n_train": 73170,
+    "n_val": 8130
   },
   "bit_meta": {
-    "best_val_loss": 0.4311743549821643,
-    "n_total": 1409139,
-    "n_train": 1268225,
-    "n_val": 140914
+    "best_val_loss": 0.4193609174822538,
+    "n_total": 2182999,
+    "n_train": 1964699,
+    "n_val": 218300
   }
 }

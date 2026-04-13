@@ -21,7 +21,7 @@ channel:
   mode: tdl
   delay_profile: C300
   delay_spread_s: 3.0e-07
-  carrier_frequency_hz: 3.5e9
+  carrier_frequency_hz: 3500000000.0
   min_speed_mps: 2.0
   max_speed_mps: 8.33
   perfect_csi_equalization: true
@@ -33,7 +33,7 @@ simulation:
   - 12.0
   - 13.0
   - 14.0
-  train_frames_per_worker_per_snr: 120
+  train_frames_per_worker_per_snr: 240
   eval_frames_per_worker_per_snr: 250
   sampled_failure_traces_per_worker_per_snr: 25
 legacy_ldpc:
@@ -42,11 +42,6 @@ legacy_ldpc:
   cn_schedule: layered
   llr_max: 8.0
   early_stop: true
-probe:
-  frames_per_worker_per_snr: 64
-  target_failure_min: 0.01
-  target_failure_max: 0.2
-  recommend_count: 5
 grand:
   topk_bits: 96
   individual_init_width: 48
@@ -57,30 +52,39 @@ grand:
   overlap_penalty: 0.35
   group_bonus_log_size: 0.1
   keep_oracle_upper_bound: true
-  rescue_bonus_cap: 5000
-  fallback_bonus_cap: 2500
-  ai_focus_fraction: 0.8
-  ai_focus_topk_bits: 160
-  ai_focus_expand_width: 64
-  ai_focus_max_primitives_in_pattern: 12
-  ai_focus_max_group_count: 32
+  rescue_bonus_cap: 2500
+  fallback_bonus_cap: 1000
+  ai_selector_fraction: 1.0
+  ai_selector_topk_bits: 160
+  ai_selector_expand_width: 32
+  ai_selector_max_primitives_in_pattern: 12
+  ai_blend_topk_bits: 160
+  ai_blend_expand_width: 32
+  ai_blend_max_primitives_in_pattern: 12
+  ai_blend_max_group_count: 16
+  ai_teacher_cap: 2500
+  bit_model_main_weight: 0.3
+  llr_model_main_weight: 0.35
+  channel_model_main_weight: 0.15
+  unsat_model_main_weight: 0.12
+  flip_model_main_weight: 0.08
 training:
   snapshot_hidden_dims:
+  - 128
   - 64
-  - 32
   bit_hidden_dims:
+  - 128
   - 96
-  - 64
-  epochs: 12
+  epochs: 24
   batch_size: 2048
   learning_rate: 0.001
   weight_decay: 1.0e-05
-  neg_to_pos_ratio: 8
+  neg_to_pos_ratio: 6
   validation_fraction: 0.1
 report:
   query_quantiles:
   - 0.5
   - 0.9
   - 0.99
-config_path: /scratch/rsadve1/Novel_GRAND/configs/fir_legacy_probe.yaml
+config_path: /scratch/rsadve1/Novel_GRAND/configs/fir_default.yaml
 repo_root: /scratch/rsadve1/Novel_GRAND

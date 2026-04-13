@@ -193,7 +193,15 @@ def _recommend_ebn0(summary: pd.DataFrame, cfg: Dict) -> List[float]:
 
 
 def _write_recommended_config(cfg: Dict, recommended_ebn0: List[float], out_path: Path) -> None:
-    cfg2 = copy.deepcopy(cfg)
+    probe_cfg = cfg.get("probe", {})
+    base_cfg_path = probe_cfg.get("base_full_config")
+    if base_cfg_path:
+        try:
+            cfg2 = load_config(base_cfg_path)
+        except Exception:
+            cfg2 = copy.deepcopy(cfg)
+    else:
+        cfg2 = copy.deepcopy(cfg)
     cfg2["experiment_name"] = "fir_tags_grand_autotuned"
     cfg2.setdefault("simulation", {})["ebn0_db_list"] = [float(x) for x in recommended_ebn0]
     with out_path.open("w", encoding="utf-8") as f:

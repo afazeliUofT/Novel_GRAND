@@ -21,19 +21,19 @@ channel:
   mode: tdl
   delay_profile: C300
   delay_spread_s: 3.0e-07
-  carrier_frequency_hz: 3.5e9
+  carrier_frequency_hz: 3500000000.0
   min_speed_mps: 2.0
   max_speed_mps: 8.33
   perfect_csi_equalization: true
   eps_equalizer: 1.0e-08
 simulation:
   ebn0_db_list:
+  - 10.0
   - 11.0
-  - 11.5
   - 12.0
-  - 12.5
   - 13.0
-  train_frames_per_worker_per_snr: 120
+  - 14.0
+  train_frames_per_worker_per_snr: 240
   eval_frames_per_worker_per_snr: 250
   sampled_failure_traces_per_worker_per_snr: 25
 legacy_ldpc:
@@ -52,28 +52,34 @@ grand:
   overlap_penalty: 0.35
   group_bonus_log_size: 0.1
   keep_oracle_upper_bound: true
-  rescue_bonus_cap: 3500
-  fallback_bonus_cap: 1500
-  ai_selector_fraction: 0.7
+  rescue_bonus_cap: 2500
+  fallback_bonus_cap: 1000
+  ai_selector_fraction: 1.0
   ai_selector_topk_bits: 160
-  ai_selector_expand_width: 24
+  ai_selector_expand_width: 32
   ai_selector_max_primitives_in_pattern: 12
   ai_blend_topk_bits: 160
-  ai_blend_expand_width: 48
+  ai_blend_expand_width: 32
   ai_blend_max_primitives_in_pattern: 12
-  ai_blend_max_group_count: 32
+  ai_blend_max_group_count: 16
+  ai_teacher_cap: 2500
+  bit_model_main_weight: 0.3
+  llr_model_main_weight: 0.35
+  channel_model_main_weight: 0.15
+  unsat_model_main_weight: 0.12
+  flip_model_main_weight: 0.08
 training:
   snapshot_hidden_dims:
-  - 96
+  - 128
   - 64
   bit_hidden_dims:
   - 128
   - 96
-  epochs: 20
+  epochs: 24
   batch_size: 2048
   learning_rate: 0.001
   weight_decay: 1.0e-05
-  neg_to_pos_ratio: 8
+  neg_to_pos_ratio: 6
   validation_fraction: 0.1
 report:
   query_quantiles:
