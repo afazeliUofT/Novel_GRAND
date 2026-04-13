@@ -38,6 +38,8 @@ check_file "outputs/fir_tags_grand_autotuned/reports/tags_stage_contribution_sum
 check_file "outputs/fir_tags_grand_autotuned/reports/tags_stage_visit_summary.csv"
 check_file "outputs/fir_tags_grand_autotuned/reports/gap_to_oracle_summary.csv"
 check_file "outputs/fir_tags_grand_autotuned/reports/net_success_gain_over_final_llr.csv"
+check_file "outputs/fir_tags_grand_autotuned/reports/net_success_gain_over_final_capmatched.csv"
+check_file "outputs/fir_tags_grand_autotuned/reports/net_success_gain_over_guard_plus_best_syndrome.csv"
 check_file "outputs/fir_tags_grand_autotuned/reports/net_exact_success_rate_vs_ebn0.png"
 
 if [[ -f outputs/fir_tags_grand_autotuned/reports/summary.md && -f outputs/fir_tags_grand_autotuned/reports/summary_eval.csv ]]; then

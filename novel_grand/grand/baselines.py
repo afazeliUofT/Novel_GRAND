@@ -85,33 +85,97 @@ def _format_result(trace: TraceResult, graph: TannerGraph, snapshot, snap_idx: i
     return out, artifacts
 
 
+def _total_tags_budget(cfg) -> int:
+    gcfg = cfg["grand"]
+    q_main = int(gcfg["query_cap"])
+    q_rescue = int(gcfg.get("rescue_bonus_cap", max(2000, q_main // 2)))
+    q_fb = int(gcfg.get("fallback_bonus_cap", max(1000, q_main // 4)))
+    return q_main + q_rescue + q_fb
+
+
 def _baseline_core(name: str, trace: TraceResult, graph: TannerGraph, cfg, *, query_cap: int | None = None) -> Tuple[Dict, Dict]:
-    if name == "final_llr_grand":
+    effective_query_cap = query_cap
+    base_name = name
+    if name == "final_llr_grand_capmatched":
+        base_name = "final_llr_grand"
+        effective_query_cap = _total_tags_budget(cfg)
+    elif name == "best_syndrome_llr_grand_capmatched":
+        base_name = "best_syndrome_llr_grand"
+        effective_query_cap = _total_tags_budget(cfg)
+
+    if base_name == "final_llr_grand":
         snap_idx = len(trace.snapshots) - 1
         scores = llr_risk(trace.snapshots[snap_idx])
-    elif name == "best_syndrome_llr_grand":
+    elif base_name == "best_syndrome_llr_grand":
         snap_idx = int(np.argmin([s.syndrome_weight for s in trace.snapshots]))
         scores = llr_risk(trace.snapshots[snap_idx])
-    elif name == "best_syndrome_unsat_grand":
+    elif base_name == "best_syndrome_unsat_grand":
         snap_idx = int(np.argmin([s.syndrome_weight for s in trace.snapshots]))
         scores = unsat_llr_risk(trace.snapshots[snap_idx])
-    elif name == "oracle_best_llr":
+    elif base_name == "oracle_best_llr":
         snap_idx = oracle_best_snapshot(trace)
         scores = llr_risk(trace.snapshots[snap_idx])
     else:
         raise ValueError(f"Unknown baseline {name}")
 
     snapshot = trace.snapshots[snap_idx]
-    res = _run_search(graph, snapshot, scores, cfg, query_cap=query_cap)
-    return _format_result(trace, graph, snapshot, snap_idx, res, cfg, name)
+    res = _run_search(graph, snapshot, scores, cfg, query_cap=effective_query_cap)
+    out, artifacts = _format_result(trace, graph, snapshot, snap_idx, res, cfg, name)
+    if effective_query_cap is not None:
+        out["query_budget"] = int(effective_query_cap)
+    return out, artifacts
+
+
+
+
+def _merge_results(primary: Dict, secondary: Dict, *, name: str, total_budget: int) -> Dict:
+    out = dict(secondary)
+    out["decoder"] = name
+    out["queries"] = int(primary.get("queries", 0)) + int(secondary.get("queries", 0))
+    out["query_budget"] = int(total_budget)
+    out["frontier_peak"] = int(max(primary.get("frontier_peak", 0), secondary.get("frontier_peak", 0)))
+    pk1 = str(primary.get("primitive_kinds", ""))
+    pk2 = str(secondary.get("primitive_kinds", ""))
+    out["primitive_kinds"] = "|".join([x for x in [pk1, pk2] if x])
+    ps1 = str(primary.get("primitive_sizes", ""))
+    ps2 = str(secondary.get("primitive_sizes", ""))
+    out["primitive_sizes"] = "|".join([x for x in [ps1, ps2] if x])
+    return out
+
+
+def run_guard_plus_best_syndrome(trace: TraceResult, graph: TannerGraph, cfg) -> Dict:
+    gcfg = cfg["grand"]
+    q_main = int(gcfg["query_cap"])
+    q_extra = int(gcfg.get("rescue_bonus_cap", max(2000, q_main // 2))) + int(gcfg.get("fallback_bonus_cap", max(1000, q_main // 4)))
+    total_budget = q_main + q_extra
+
+    guard = run_baseline("final_llr_grand", trace, graph, cfg, query_cap=q_main)
+    guard = dict(guard)
+    guard["decoder"] = "guard_plus_best_syndrome"
+    guard["primitive_kinds"] = "|".join([x for x in ["guard_final_llr", str(guard.get("primitive_kinds", ""))] if x])
+    guard["query_budget"] = int(total_budget)
+    if guard.get("valid_codeword", False):
+        return guard
+
+    fb = run_baseline("best_syndrome_llr_grand", trace, graph, cfg, query_cap=q_extra)
+    fb = dict(fb)
+    fb["decoder"] = "guard_plus_best_syndrome"
+    fb["primitive_kinds"] = "|".join([x for x in ["fallback_best_syndrome_llr_nonai", str(fb.get("primitive_kinds", ""))] if x])
+    merged = _merge_results(guard, fb, name="guard_plus_best_syndrome", total_budget=total_budget)
+    return merged
 
 
 def run_baseline(name: str, trace: TraceResult, graph: TannerGraph, cfg, *, query_cap: int | None = None) -> Dict:
+    if name == "guard_plus_best_syndrome":
+        return run_guard_plus_best_syndrome(trace, graph, cfg)
     out, _ = _baseline_core(name, trace, graph, cfg, query_cap=query_cap)
     return out
 
 
 def run_baseline_detailed(name: str, trace: TraceResult, graph: TannerGraph, cfg, *, query_cap: int | None = None) -> Dict:
+    if name == "guard_plus_best_syndrome":
+        # Detailed artifacts are not currently used for this non-AI baseline.
+        return run_guard_plus_best_syndrome(trace, graph, cfg)
     out, artifacts = _baseline_core(name, trace, graph, cfg, query_cap=query_cap)
     detailed = dict(out)
     detailed.update(artifacts)

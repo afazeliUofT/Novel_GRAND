@@ -77,3 +77,7 @@ eval/shards/       per-frame evaluation rows
 eval/sampled_failures/ representative failure traces
 reports/           merged CSVs, plots, markdown summary
 ```
+
+
+## v6 note
+The default evaluation now includes cap-matched non-AI baselines so that any TAGS gain can be judged against equal query budgets.

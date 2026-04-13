@@ -203,14 +203,15 @@ def evaluate_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
     baselines = [
         "ldpc_only",
         "final_llr_grand",
+        "final_llr_grand_capmatched",
         "best_syndrome_llr_grand",
-        "best_syndrome_unsat_grand",
+        "best_syndrome_llr_grand_capmatched",
+        "guard_plus_best_syndrome",
         "selector_llr_grand",
-        "selector_blend_grand",
         "tags_grand_lite",
     ]
     if cfg["grand"].get("keep_oracle_upper_bound", False):
-        baselines.insert(6, "oracle_best_llr")
+        baselines.insert(7, "oracle_best_llr")
 
     frame_rows: List[Dict] = []
 

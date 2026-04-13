@@ -290,6 +290,8 @@ def _write_markdown(
     df_div: pd.DataFrame,
     df_qhit: pd.DataFrame,
     out_dir: Path,
+    df_gain_final_cap: pd.DataFrame,
+    df_gain_guard_best: pd.DataFrame,
 ) -> None:
     lines = []
     lines.append("# TAGS-GRAND report")
@@ -330,6 +332,24 @@ def _write_markdown(
         hi = df_qhit[(df_qhit["decoder"] != "ldpc_only") & (df_qhit["query_cap_hit_rate"] >= 0.75)]
         if not hi.empty:
             warnings.append("At least one rescue decoder hit its query cap on 75%+ of invoked frames, indicating saturation.")
+        tags_budget = df_qhit[df_qhit["decoder"] == "tags_grand_lite"]["query_budget"]
+        final_budget = df_qhit[df_qhit["decoder"] == "final_llr_grand"]["query_budget"]
+        if not tags_budget.empty and not final_budget.empty and float(tags_budget.iloc[0]) > float(final_budget.iloc[0]):
+            warnings.append("TAGS is being compared against a smaller-budget final-LLR baseline. Use the cap-matched baselines before attributing small gains to AI ordering.")
+    if not df_gain_final_cap.empty:
+        lines.append("")
+        lines.append("## Budget-matched comparisons")
+        for ebn0_db, g in df_gain_final_cap.groupby("ebn0_db", sort=True):
+            row = g[g["decoder"] == "tags_grand_lite"]
+            if not row.empty:
+                gain = float(row.iloc[0]["net_success_gain_over_final_capmatched"])
+                lines.append(f"- `Eb/N0={ebn0_db:.2f} dB`: TAGS minus `final_llr_grand_capmatched` = `{gain:.6f}` net exact success.")
+    if not df_gain_guard_best.empty:
+        for ebn0_db, g in df_gain_guard_best.groupby("ebn0_db", sort=True):
+            row = g[g["decoder"] == "tags_grand_lite"]
+            if not row.empty:
+                gain = float(row.iloc[0]["net_success_gain_over_guard_plus_best_syndrome"])
+                lines.append(f"- `Eb/N0={ebn0_db:.2f} dB`: TAGS minus `guard_plus_best_syndrome` = `{gain:.6f}` net exact success.")
     if warnings:
         lines.append("")
         lines.append("## Warnings")
@@ -350,6 +370,10 @@ def _write_markdown(
         "net_success_gain_over_ldpc_vs_ebn0.png",
         "net_success_gain_over_final_llr.csv",
         "net_success_gain_over_final_llr_vs_ebn0.png",
+        "net_success_gain_over_final_capmatched.csv",
+        "net_success_gain_over_final_capmatched_vs_ebn0.png",
+        "net_success_gain_over_guard_plus_best_syndrome.csv",
+        "net_success_gain_over_guard_plus_best_syndrome_vs_ebn0.png",
         "gap_to_oracle_summary.csv",
         "net_gap_to_oracle_vs_ebn0.png",
         "snapshot_gap_to_oracle_vs_ebn0.png",
@@ -410,6 +434,12 @@ def main() -> None:
     df_gain_final = _gain_over_reference(df_summary, "final_llr_grand", "net_success_gain_over_final_llr")
     if not df_gain_final.empty:
         df_gain_final.to_csv(report_dir / "net_success_gain_over_final_llr.csv", index=False)
+    df_gain_final_cap = _gain_over_reference(df_summary, "final_llr_grand_capmatched", "net_success_gain_over_final_capmatched")
+    if not df_gain_final_cap.empty:
+        df_gain_final_cap.to_csv(report_dir / "net_success_gain_over_final_capmatched.csv", index=False)
+    df_gain_guard_best = _gain_over_reference(df_summary, "guard_plus_best_syndrome", "net_success_gain_over_guard_plus_best_syndrome")
+    if not df_gain_guard_best.empty:
+        df_gain_guard_best.to_csv(report_dir / "net_success_gain_over_guard_plus_best_syndrome.csv", index=False)
     df_gap = _gap_to_oracle(df_summary)
     df_gap.to_csv(report_dir / "gap_to_oracle_summary.csv", index=False)
     df_eff = _query_efficiency(df_gain, df_summary)
@@ -433,6 +463,10 @@ def main() -> None:
     _line_plot(df_gain, "ebn0_db", "net_success_gain_over_ldpc", report_dir / "net_success_gain_over_ldpc_vs_ebn0.png", "Net success gain over LDPC", include_ldpc=False)
     if not df_gain_final.empty:
         _line_plot(df_gain_final, "ebn0_db", "net_success_gain_over_final_llr", report_dir / "net_success_gain_over_final_llr_vs_ebn0.png", "Net success gain over final LLR GRAND", include_ldpc=False)
+    if not df_gain_final_cap.empty:
+        _line_plot(df_gain_final_cap, "ebn0_db", "net_success_gain_over_final_capmatched", report_dir / "net_success_gain_over_final_capmatched_vs_ebn0.png", "Net success gain over final cap-matched GRAND", include_ldpc=False)
+    if not df_gain_guard_best.empty:
+        _line_plot(df_gain_guard_best, "ebn0_db", "net_success_gain_over_guard_plus_best_syndrome", report_dir / "net_success_gain_over_guard_plus_best_syndrome_vs_ebn0.png", "Net success gain over non-AI guard+best-syndrome", include_ldpc=False)
     if not df_gap.empty:
         _line_plot(df_gap, "ebn0_db", "net_success_gap_to_oracle", report_dir / "net_gap_to_oracle_vs_ebn0.png", "Net success gap to oracle", include_ldpc=False)
         _line_plot(df_gap, "ebn0_db", "selected_snapshot_gap_to_oracle", report_dir / "snapshot_gap_to_oracle_vs_ebn0.png", "Snapshot gap to oracle", include_ldpc=False)
@@ -449,7 +483,7 @@ def main() -> None:
     if not df_div.empty:
         _line_plot(df_div, "ebn0_db", "avg_unique_outcomes_per_frame_slot", report_dir / "worker_diversity_vs_ebn0.png", "Avg unique worker outcomes / frame slot")
 
-    _write_markdown(df_summary, df_stage, df_stage_visit, df_div, df_qhit, report_dir)
+    _write_markdown(df_summary, df_stage, df_stage_visit, df_div, df_qhit, report_dir, df_gain_final_cap, df_gain_guard_best)
 
 
 if __name__ == "__main__":
