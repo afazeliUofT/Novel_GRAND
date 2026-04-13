@@ -1,25 +1,23 @@
-# Novel GRAND standalone v7: FlowSearch replacement
+# Patch notes: standalone v8 MaskDiff-GRAND package
 
-This package replaces the previous static TAGS AI path with a new **FlowSearch-GRAND** rescue path.
+This standalone package replaces the previous FlowSearch-GRAND AI stage with a new **MaskDiff-GRAND** rescue path.
 
 ## Main changes
 
-- Replaces the earlier blend-based AI rescue with a **multi-snapshot policy-value tree search**.
-- Keeps the strongest working deterministic pieces:
-  - final-LLR GRAND guard
-  - best-syndrome LLR fallback
-- Adds new trainable models:
-  - `snapshot_selector.pt`
-  - `action_prior.pt`
-  - `state_value.pt`
-- Collects new training shards:
-  - `action_rows_*.npz`
-  - `value_rows_*.npz`
-- Adds budget-fair reporting against:
-  - `final_llr_grand_capmatched`
-  - `guard_plus_best_syndrome`
-- Updates Slurm walltimes to match observed FIR runtimes more closely.
+- Replaced the multi-snapshot policy-value tree search with a **verifier-guided masked-diffusion set generator**.
+- Kept the **teacher-aligned snapshot selector**, because the previous run showed that the selector was useful even though the search stage was weak.
+- Trains the AI only on **post-guard failures**, i.e. the distribution the AI stage actually sees at inference.
+- Generates **whole correction-set hypotheses** on a shortlist of risky bits, instead of stepwise local actions.
+- Adds a lightweight **consensus reconditioning** pass and a local exact-repair step.
+- Keeps **budget-matched baselines** so the next run can decide clearly whether the new AI stage is actually useful.
 
-## Why this version exists
+## Why this update exists
 
-The v6 results showed that the pipeline was scientifically credible, but the learned TAGS stage contributed only a tiny fraction of total rescues once the comparison was made budget-fair. This version tests a **different AI formulation** rather than another small patch of the same one.
+The previous package showed:
+
+- the pipeline was mechanically sound,
+- the selected snapshot moved much closer to oracle,
+- but the AI stage itself still contributed almost nothing,
+- and the strongest non-AI two-stage baseline remained hard to beat.
+
+This package therefore changes the **AI rescue architecture itself**, not just the reporting or scheduling.

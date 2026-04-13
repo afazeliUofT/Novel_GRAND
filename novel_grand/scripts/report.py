@@ -140,7 +140,7 @@ def _decoder_budget(cfg: dict, decoder: str) -> int:
     if decoder == "ldpc_only":
         return 0
     q_main = int(cfg["grand"]["query_cap"])
-    if decoder == "tags_grand_lite":
+    if decoder in {"tags_grand_lite", "flowsearch_grand", "maskdiff_grand"}:
         q_rescue = int(cfg["grand"].get("rescue_bonus_cap", q_main))
         q_fb = int(cfg["grand"].get("fallback_bonus_cap", max(1000, q_main // 2)))
         return q_main + q_rescue + q_fb
@@ -201,7 +201,7 @@ def _primitive_usage(frame_df: pd.DataFrame) -> pd.DataFrame:
 
 
 
-PRIMARY_AI_DECODER = "flowsearch_grand"
+PRIMARY_AI_DECODER = "maskdiff_grand"
 
 
 def _ai_stage_contribution(frame_df: pd.DataFrame) -> pd.DataFrame:
@@ -297,7 +297,7 @@ def _write_markdown(
     df_gain_guard_best: pd.DataFrame,
 ) -> None:
     lines = []
-    lines.append("# FlowSearch-GRAND report")
+    lines.append("# MaskDiff-GRAND report")
     lines.append("")
     lines.append("## Interpretation")
     lines.append("For rescue decoders, **conditional** success means success only on frames that legacy LDPC had already failed.")
@@ -335,9 +335,9 @@ def _write_markdown(
         hi = df_qhit[(df_qhit["decoder"] != "ldpc_only") & (df_qhit["query_cap_hit_rate"] >= 0.75)]
         if not hi.empty:
             warnings.append("At least one rescue decoder hit its query cap on 75%+ of invoked frames, indicating search saturation.")
-        tags_budget = df_qhit[df_qhit["decoder"] == "tags_grand_lite"]["query_budget"]
+        ai_budget = df_qhit[df_qhit["decoder"] == PRIMARY_AI_DECODER]["query_budget"]
         final_budget = df_qhit[df_qhit["decoder"] == "final_llr_grand"]["query_budget"]
-        if not tags_budget.empty and not final_budget.empty and float(tags_budget.iloc[0]) > float(final_budget.iloc[0]):
+        if not ai_budget.empty and not final_budget.empty and float(ai_budget.iloc[0]) > float(final_budget.iloc[0]):
             warnings.append("Compare the AI decoder against the cap-matched and guard-plus baselines before attributing small gains to learned ordering.")
     if not df_gain_final_cap.empty:
         lines.append("")
@@ -346,13 +346,13 @@ def _write_markdown(
             row = g[g["decoder"] == PRIMARY_AI_DECODER]
             if not row.empty:
                 gain = float(row.iloc[0]["net_success_gain_over_final_capmatched"])
-                lines.append(f"- `Eb/N0={ebn0_db:.2f} dB`: FlowSearch minus `final_llr_grand_capmatched` = `{gain:.6f}` net exact success.")
+                lines.append(f"- `Eb/N0={ebn0_db:.2f} dB`: MaskDiff minus `final_llr_grand_capmatched` = `{gain:.6f}` net exact success.")
     if not df_gain_guard_best.empty:
         for ebn0_db, g in df_gain_guard_best.groupby("ebn0_db", sort=True):
             row = g[g["decoder"] == PRIMARY_AI_DECODER]
             if not row.empty:
                 gain = float(row.iloc[0]["net_success_gain_over_guard_plus_best_syndrome"])
-                lines.append(f"- `Eb/N0={ebn0_db:.2f} dB`: FlowSearch minus `guard_plus_best_syndrome` = `{gain:.6f}` net exact success.")
+                lines.append(f"- `Eb/N0={ebn0_db:.2f} dB`: MaskDiff minus `guard_plus_best_syndrome` = `{gain:.6f}` net exact success.")
     if warnings:
         lines.append("")
         lines.append("## Warnings")

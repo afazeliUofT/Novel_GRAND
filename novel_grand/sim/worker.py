@@ -8,19 +8,21 @@ import torch
 
 from novel_grand.config import run_root
 from novel_grand.grand.baselines import run_baseline, run_baseline_detailed, run_teacher_best_snapshot_llr
-from novel_grand.grand.pvts import run_flowsearch_grand
+from novel_grand.grand.maskdiff import run_maskdiff_grand
 from novel_grand.grand.tags_lite import run_selector_llr_grand
 from novel_grand.ldpc.bp_trace import BPTraceRunner
-from novel_grand.ldpc.features import (
-    oracle_best_snapshot,
-    snapshot_training_rows,
-    teacher_snapshot_training_rows,
-)
-from novel_grand.ldpc.pv_features import build_policy_value_training_rows
-from novel_grand.models.training import load_action_prior, load_snapshot_selector, load_state_value
+from novel_grand.ldpc.features import teacher_snapshot_training_rows
+from novel_grand.ldpc.maskdiff_features import build_maskdiff_training_rows
+from novel_grand.models.maskdiff import load_maskdiff
+from novel_grand.models.training import load_snapshot_selector
 from novel_grand.sim.channel import NRSlotQAMLink
 from novel_grand.utils.io import ensure_dir, write_jsonl
 from novel_grand.utils.seed import set_global_seed
+
+
+MASKDIFF_TOKEN_DIM = 16
+MASKDIFF_GLOBAL_DIM = 17
+
 
 
 def collect_train_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
@@ -35,19 +37,14 @@ def collect_train_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
 
     n_frames = int(cfg["simulation"]["train_frames_per_worker_per_snr"])
     max_iter = int(cfg["legacy_ldpc"]["num_iter"])
-    nr = cfg["nr"]
     rng = np.random.default_rng(seed)
 
     snapshot_rows: List[Dict] = []
-    action_x_rows: List[np.ndarray] = []
-    action_y_rows: List[np.ndarray] = []
-    value_x_rows: List[np.ndarray] = []
-    value_y_rows: List[np.ndarray] = []
+    mdiff_token_rows: List[np.ndarray] = []
+    mdiff_global_rows: List[np.ndarray] = []
+    mdiff_y_rows: List[np.ndarray] = []
+    mdiff_mask_rows: List[np.ndarray] = []
     frame_rows: List[Dict] = []
-
-    neg_to_pos = int(cfg["training"].get("policy_neg_to_pos_ratio", cfg["training"].get("neg_to_pos_ratio", 6)))
-    value_negs = int(cfg["training"].get("value_negatives_per_prefix", 2))
-    shortlist_topk = int(cfg["grand"].get("flow_shortlist_topk_bits", 96))
 
     for frame_idx in range(n_frames):
         t0 = time.perf_counter()
@@ -81,74 +78,63 @@ def collect_train_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
 
         guard = run_baseline_detailed("final_llr_grand", trace, tracer.graph_exact, cfg)
         if bool(guard.get("success_exact", False)):
+            # The AI stage only sees post-guard failures.
             continue
 
         teacher_cap = int(cfg["grand"].get("ai_teacher_cap", cfg["grand"].get("rescue_bonus_cap", cfg["grand"]["query_cap"])))
         teacher = run_teacher_best_snapshot_llr(trace, tracer.graph_exact, cfg, query_cap=teacher_cap)
         teacher_exact = bool(teacher.get("success_exact", False))
-        teacher_snapshot_idx = int(teacher.get("selected_snapshot_index", oracle_best_snapshot(trace)))
+        teacher_snapshot_idx = int(teacher.get("selected_snapshot_index", len(trace.snapshots) - 1))
 
-        if teacher_exact:
-            snapshot_rows.extend(
-                teacher_snapshot_training_rows(
-                    trace,
-                    teacher_snapshot_idx,
-                    max_iter,
-                    tracer.graph_struct.max_vn_degree,
-                    tracer.graph_exact.m,
-                )
+        # Teacher-aligned snapshot selector rows.
+        snapshot_rows.extend(
+            teacher_snapshot_training_rows(
+                trace,
+                teacher_snapshot_idx,
+                max_iter,
+                tracer.graph_struct.max_vn_degree,
+                tracer.graph_exact.m,
             )
+        )
+
+        target_mask = None
+        if teacher_exact:
             target_mask = (
                 trace.snapshots[teacher_snapshot_idx].hard.astype(np.uint8)
                 ^ np.asarray(teacher["corrected_bits"], dtype=np.uint8)
             ).astype(np.float32)
-        else:
-            snapshot_rows.extend(
-                snapshot_training_rows(trace, max_iter, tracer.graph_struct.max_vn_degree, tracer.graph_exact.m)
-            )
-            target_mask = None
 
-        act_x, act_y, val_x, val_y = build_policy_value_training_rows(
+        tok_x, glb_x, yy, mm = build_maskdiff_training_rows(
             trace=trace,
             snapshot_idx=teacher_snapshot_idx,
             graph_exact=tracer.graph_exact,
             graph_struct=tracer.graph_struct,
-            max_iter=max_iter,
-            bits_per_symbol=int(nr["bits_per_symbol"]),
-            fft_size=int(nr["fft_size"]),
+            cfg=cfg,
             target_mask=target_mask,
-            shortlist_topk_bits=shortlist_topk,
-            neg_to_pos_ratio=neg_to_pos,
-            value_negatives_per_prefix=value_negs,
             rng=rng,
         )
-        if act_x.shape[0] > 0:
-            action_x_rows.append(act_x)
-            action_y_rows.append(act_y)
-        if val_x.shape[0] > 0:
-            value_x_rows.append(val_x)
-            value_y_rows.append(val_y)
+        if tok_x.shape[0] > 0:
+            mdiff_token_rows.append(tok_x)
+            mdiff_global_rows.append(glb_x)
+            mdiff_y_rows.append(yy)
+            mdiff_mask_rows.append(mm)
 
     snapshot_path = shard_dir / f"snapshot_rows_worker{worker_id:02d}_snr{ebn0_db:.2f}.jsonl"
     write_jsonl(snapshot_path, snapshot_rows)
 
-    action_npz_path = shard_dir / f"action_rows_worker{worker_id:02d}_snr{ebn0_db:.2f}.npz"
-    if action_x_rows:
-        ax = np.concatenate(action_x_rows, axis=0).astype(np.float32)
-        ay = np.concatenate(action_y_rows, axis=0).astype(np.float32)
+    mdiff_npz_path = shard_dir / f"maskdiff_rows_worker{worker_id:02d}_snr{ebn0_db:.2f}.npz"
+    topk_bits = int(cfg["grand"].get("mdiff_shortlist_bits", 64))
+    if mdiff_token_rows:
+        tx = np.concatenate(mdiff_token_rows, axis=0).astype(np.float32)
+        gx = np.concatenate(mdiff_global_rows, axis=0).astype(np.float32)
+        yy = np.concatenate(mdiff_y_rows, axis=0).astype(np.float32)
+        mm = np.concatenate(mdiff_mask_rows, axis=0).astype(np.float32)
     else:
-        ax = np.zeros((0, 19), dtype=np.float32)
-        ay = np.zeros((0,), dtype=np.float32)
-    np.savez_compressed(action_npz_path, x=ax, y=ay)
-
-    value_npz_path = shard_dir / f"value_rows_worker{worker_id:02d}_snr{ebn0_db:.2f}.npz"
-    if value_x_rows:
-        vx = np.concatenate(value_x_rows, axis=0).astype(np.float32)
-        vy = np.concatenate(value_y_rows, axis=0).astype(np.float32)
-    else:
-        vx = np.zeros((0, 20), dtype=np.float32)
-        vy = np.zeros((0,), dtype=np.float32)
-    np.savez_compressed(value_npz_path, x=vx, y=vy)
+        tx = np.zeros((0, topk_bits, MASKDIFF_TOKEN_DIM), dtype=np.float32)
+        gx = np.zeros((0, MASKDIFF_GLOBAL_DIM), dtype=np.float32)
+        yy = np.zeros((0, topk_bits), dtype=np.float32)
+        mm = np.zeros((0, topk_bits), dtype=np.float32)
+    np.savez_compressed(mdiff_npz_path, token_x=tx, global_x=gx, y=yy, loss_mask=mm)
 
     frame_path = shard_dir / f"ldpc_frames_worker{worker_id:02d}_snr{ebn0_db:.2f}.jsonl"
     write_jsonl(frame_path, frame_rows)
@@ -158,13 +144,12 @@ def collect_train_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
         "ebn0_db": ebn0_db,
         "n_frames": n_frames,
         "n_snapshot_rows": len(snapshot_rows),
-        "n_action_rows": int(ax.shape[0]),
-        "n_value_rows": int(vx.shape[0]),
+        "n_maskdiff_rows": int(tx.shape[0]),
         "snapshot_path": str(snapshot_path),
-        "action_npz_path": str(action_npz_path),
-        "value_npz_path": str(value_npz_path),
+        "maskdiff_npz_path": str(mdiff_npz_path),
         "frame_path": str(frame_path),
     }
+
 
 
 def evaluate_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
@@ -187,16 +172,8 @@ def evaluate_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
         in_dim=12,
         device=cfg["system"]["device"],
     )
-    action_model = load_action_prior(
-        models_dir / "action_prior.pt",
-        hidden_dims=cfg["training"].get("action_hidden_dims", cfg["training"]["bit_hidden_dims"]),
-        in_dim=19,
-        device=cfg["system"]["device"],
-    )
-    value_model = load_state_value(
-        models_dir / "state_value.pt",
-        hidden_dims=cfg["training"].get("value_hidden_dims", cfg["training"]["snapshot_hidden_dims"]),
-        in_dim=20,
+    maskdiff_model = load_maskdiff(
+        models_dir / "maskdiff.pt",
         device=cfg["system"]["device"],
     )
 
@@ -210,7 +187,7 @@ def evaluate_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
         "final_llr_grand_capmatched",
         "guard_plus_best_syndrome",
         "selector_llr_grand",
-        "flowsearch_grand",
+        "maskdiff_grand",
     ]
     if cfg["grand"].get("keep_oracle_upper_bound", False):
         baselines.append("oracle_best_llr")
@@ -249,8 +226,8 @@ def evaluate_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
                 t1 = time.perf_counter()
                 if name == "selector_llr_grand":
                     res = run_selector_llr_grand(trace, graph_exact, graph_struct, snapshot_model, cfg)
-                elif name == "flowsearch_grand":
-                    res = run_flowsearch_grand(trace, graph_exact, graph_struct, snapshot_model, action_model, value_model, cfg)
+                elif name == "maskdiff_grand":
+                    res = run_maskdiff_grand(trace, graph_exact, graph_struct, snapshot_model, maskdiff_model, cfg)
                 else:
                     res = run_baseline(name, trace, graph_exact, cfg)
                 res.update(

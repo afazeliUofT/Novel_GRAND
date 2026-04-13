@@ -6,28 +6,38 @@ import json
 import numpy as np
 
 from novel_grand.config import load_config, run_root
+from novel_grand.models.maskdiff import fit_maskdiff, save_maskdiff_bundle
 from novel_grand.models.training import (
-    fit_action_prior,
     fit_snapshot_selector,
-    fit_state_value,
     save_meta_json,
     save_model_bundle,
 )
 from novel_grand.utils.io import read_jsonl
 
 
-def _load_npz_rows(paths):
-    xs = []
+
+def _load_maskdiff_rows(paths):
+    token_xs = []
+    global_xs = []
     ys = []
+    ms = []
     for path in paths:
         data = np.load(path)
-        if data["x"].shape[0] == 0:
+        if data["token_x"].shape[0] == 0:
             continue
-        xs.append(data["x"].astype(np.float32))
+        token_xs.append(data["token_x"].astype(np.float32))
+        global_xs.append(data["global_x"].astype(np.float32))
         ys.append(data["y"].astype(np.float32))
-    if not xs:
-        return None, None
-    return np.concatenate(xs, axis=0), np.concatenate(ys, axis=0)
+        ms.append(data["loss_mask"].astype(np.float32))
+    if not token_xs:
+        return None, None, None, None
+    return (
+        np.concatenate(token_xs, axis=0),
+        np.concatenate(global_xs, axis=0),
+        np.concatenate(ys, axis=0),
+        np.concatenate(ms, axis=0),
+    )
+
 
 
 def main():
@@ -42,9 +52,8 @@ def main():
     model_dir.mkdir(parents=True, exist_ok=True)
 
     snapshot_paths = sorted(shard_dir.glob("snapshot_rows_*.jsonl"))
-    action_paths = sorted(shard_dir.glob("action_rows_*.npz"))
-    value_paths = sorted(shard_dir.glob("value_rows_*.npz"))
-    if not snapshot_paths or not action_paths or not value_paths:
+    maskdiff_paths = sorted(shard_dir.glob("maskdiff_rows_*.npz"))
+    if not snapshot_paths or not maskdiff_paths:
         raise FileNotFoundError("Training shards not found. Run collect_train first.")
 
     snap_rows = []
@@ -53,35 +62,26 @@ def main():
     snap_x = np.asarray([r["x"] for r in snap_rows], dtype=np.float32)
     snap_y = np.asarray([r["y"] for r in snap_rows], dtype=np.float32)
 
-    action_x, action_y = _load_npz_rows(action_paths)
-    if action_x is None:
-        raise RuntimeError("No action-prior training rows were collected.")
-    value_x, value_y = _load_npz_rows(value_paths)
-    if value_x is None:
-        raise RuntimeError("No state-value training rows were collected.")
+    token_x, global_x, yy, mm = _load_maskdiff_rows(maskdiff_paths)
+    if token_x is None:
+        raise RuntimeError("No masked-diffusion training rows were collected.")
 
     snap_model, snap_mean, snap_std, snap_meta = fit_snapshot_selector(
         snap_x, snap_y, cfg, device=cfg["system"]["device"]
     )
-    act_model, act_mean, act_std, act_meta = fit_action_prior(
-        action_x, action_y, cfg, device=cfg["system"]["device"]
-    )
-    val_model, val_mean, val_std, val_meta = fit_state_value(
-        value_x, value_y, cfg, device=cfg["system"]["device"]
+    md_model, tok_mean, tok_std, glb_mean, glb_std, md_meta = fit_maskdiff(
+        token_x, global_x, yy, mm, cfg, device=cfg["system"]["device"]
     )
 
     save_model_bundle(model_dir / "snapshot_selector.pt", snap_model, snap_mean, snap_std, snap_meta)
-    save_model_bundle(model_dir / "action_prior.pt", act_model, act_mean, act_std, act_meta)
-    save_model_bundle(model_dir / "state_value.pt", val_model, val_mean, val_std, val_meta)
+    save_maskdiff_bundle(model_dir / "maskdiff.pt", md_model, tok_mean, tok_std, glb_mean, glb_std, md_meta)
     save_meta_json(
         model_dir / "training_summary.json",
         {
             "snapshot_rows": int(snap_x.shape[0]),
-            "action_rows": int(action_x.shape[0]),
-            "value_rows": int(value_x.shape[0]),
+            "maskdiff_rows": int(token_x.shape[0]),
             "snapshot_meta": snap_meta,
-            "action_meta": act_meta,
-            "value_meta": val_meta,
+            "maskdiff_meta": md_meta,
         },
     )
     print(json.dumps({"status": "ok", "model_dir": str(model_dir)}, indent=2))

@@ -13,9 +13,7 @@ nr:
   fft_size: 24
   cyclic_prefix_length: 0
   subcarrier_spacing_hz: 30000.0
-  num_guard_carriers:
-  - 0
-  - 0
+  num_guard_carriers: [0, 0]
   dc_null: false
 channel:
   mode: tdl
@@ -27,12 +25,7 @@ channel:
   perfect_csi_equalization: true
   eps_equalizer: 1.0e-08
 simulation:
-  ebn0_db_list:
-  - 10.0
-  - 11.0
-  - 12.0
-  - 13.0
-  - 14.0
+  ebn0_db_list: [10.0, 11.0, 12.0, 13.0, 14.0]
   train_frames_per_worker_per_snr: 240
   eval_frames_per_worker_per_snr: 250
   sampled_failure_traces_per_worker_per_snr: 25
@@ -55,41 +48,38 @@ grand:
   rescue_bonus_cap: 2000
   fallback_bonus_cap: 1500
   ai_teacher_cap: 2000
-  # New multi-snapshot policy-value flowsearch stage
-  flow_snapshot_candidates: 3
-  flow_shortlist_topk_bits: 96
-  flow_policy_pool_bits: 16
-  flow_expand_width: 6
-  flow_max_depth: 10
-  flow_max_pairs_per_state: 4
-  flow_pair_seed_bits: 8
-  flow_value_weight: 0.55
-  flow_delta_weight: 0.20
-  flow_depth_penalty: 0.03
+
+  # New verifier-guided masked-diffusion rescue stage.
+  mdiff_shortlist_bits: 64
+  mdiff_snapshot_candidates: 2
+  mdiff_primary_snapshot_fraction: 0.70
+  mdiff_beam_width: 8
+  mdiff_max_complete_candidates: 8
+  mdiff_reveal_schedule: [8, 8, 8, 8, 16, 16]
+  mdiff_local_repair_bits: 20
+  mdiff_local_repair_expand_width: 12
+  mdiff_local_repair_max_toggles: 3
+  mdiff_local_repair_budget_per_candidate: 32
+  mdiff_consensus_topn: 4
+  mdiff_consensus_strength: 1.0
+  mdiff_consensus_budget: 256
+  mdiff_seed_offset: 17
 training:
-  snapshot_hidden_dims:
-  - 128
-  - 64
-  action_hidden_dims:
-  - 128
-  - 96
-  value_hidden_dims:
-  - 128
-  - 64
-  # kept for backward compatibility with older loaders/tools
-  bit_hidden_dims:
-  - 128
-  - 96
+  snapshot_hidden_dims: [128, 64]
+  # Retained for compatibility with older analysis helpers.
+  bit_hidden_dims: [128, 96]
   epochs: 24
   batch_size: 2048
   learning_rate: 0.001
   weight_decay: 1.0e-05
-  neg_to_pos_ratio: 6
-  policy_neg_to_pos_ratio: 8
-  value_negatives_per_prefix: 2
   validation_fraction: 0.1
+
+  maskdiff_d_model: 48
+  maskdiff_num_heads: 4
+  maskdiff_num_layers: 2
+  maskdiff_ffn_dim: 96
+  maskdiff_dropout: 0.0
+  maskdiff_batch_size: 192
+  maskdiff_corruptions_per_frame: 6
 report:
-  query_quantiles:
-  - 0.5
-  - 0.9
-  - 0.99
+  query_quantiles: [0.5, 0.9, 0.99]

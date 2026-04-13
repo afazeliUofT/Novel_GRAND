@@ -1,21 +1,22 @@
 # Novel GRAND package for FIR
 
-This is a **full standalone package** for a Sionna-based **5G NR LDPC + FlowSearch-GRAND** study on FIR.
+This is a **full standalone package** for a Sionna-based **5G NR LDPC + MaskDiff-GRAND** study on FIR.
 
 ## Mechanism in one paragraph
 
-The package keeps the **legacy 5G NR LDPC decoder** as the primary decoder. Only frames with **non-zero syndrome after the LDPC iteration cap** go to the rescue path. The rescue path first runs a strong **final-LLR GRAND guard** on the final LDPC snapshot. If that fails, it uses a **learned snapshot selector** to seed a **multi-snapshot policy-value tree search** over exact syndrome-preserving correction patterns. That search is followed by a conservative **best-syndrome LLR fallback**. Every rescue candidate is still validated by **exact syndrome checking** on the transmitted rate-matched code.
+The package keeps the **legacy 5G NR LDPC decoder** as the primary decoder. Only frames with **non-zero syndrome after the LDPC iteration cap** go to the rescue path. The rescue path first runs a strong **final-LLR GRAND guard** on the final LDPC snapshot. If that fails, it uses a **learned snapshot selector** to choose a promising failed-BP snapshot and then runs a **verifier-guided masked-diffusion set generator** on a conservative shortlist of risky bits. The diffusion stage proposes full correction sets rather than one-step flips, and every candidate is still validated by **exact syndrome checking** on the transmitted rate-matched code. A conservative **best-syndrome LLR fallback** remains in place after the AI stage.
 
 ## Why this package exists
 
-The previous TAGS-GRAND path showed that the overall pipeline was working, but the **AI stage itself was contributing almost no exact rescues**. This package replaces that path with a different AI architecture:
+The previous FlowSearch-GRAND path showed that the selector was useful, but the **AI rescue stage itself still contributed almost no exact rescues**. This package replaces that path with a different AI architecture inspired by recent discrete diffusion and inference-time search advances:
 
 - a **teacher-aligned snapshot selector**,
-- a **learned action prior** for the next flip action,
-- a **learned state-value model** for partial correction patterns,
-- a **best-first multi-snapshot tree search** under a fixed rescue budget.
+- a **masked discrete denoiser** over a shortlist of candidate bits,
+- a **parallel unmasking sampler** that proposes whole correction sets,
+- a lightweight **consensus reconditioning** round,
+- and a **local exact-repair** step under the same fixed rescue budget.
 
-This is meant to test whether **set-level search guidance** is more effective than the earlier static bit-ranking path.
+This is meant to test whether **whole-set generative search** is more effective than local tree expansion over individual actions.
 
 ## Important implementation detail
 
@@ -90,7 +91,7 @@ Key folders:
 smoke/                 smoke summary
 probe/shards/          legacy-LDPC probe shards
 train/shards/          raw training shards from failed LDPC traces
-models/                trained snapshot selector + action prior + state value model
+models/                trained snapshot selector + masked-diffusion model
 eval/shards/           per-frame evaluation rows
 eval/sampled_failures/ representative failure traces
 reports/               merged CSVs, plots, markdown summary

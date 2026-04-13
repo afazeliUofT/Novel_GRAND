@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "novel-grand"
-version = "0.1.1"
-description = "Sionna-based 5G NR LDPC + TAGS-GRAND-Lite research pipeline"
+version = "0.1.2"
+description = "Sionna-based 5G NR LDPC + MaskDiff-GRAND research pipeline"
 requires-python = ">=3.11"
 
 [tool.setuptools.packages.find]

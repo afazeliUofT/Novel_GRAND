@@ -1,23 +1,23 @@
 {
   "snapshot_rows": 81300,
-  "action_rows": 6129,
-  "value_rows": 8818,
+  "maskdiff_rows": 1434,
   "snapshot_meta": {
-    "best_val_loss": 0.02831131169643496,
+    "best_val_loss": 0.06634720230124533,
     "n_total": 81300,
     "n_train": 73170,
     "n_val": 8130
   },
-  "action_meta": {
-    "best_val_loss": 0.2876560389995575,
-    "n_total": 6129,
-    "n_train": 5516,
-    "n_val": 613
-  },
-  "value_meta": {
-    "best_val_loss": 0.19303686916828156,
-    "n_total": 8818,
-    "n_train": 7936,
-    "n_val": 882
+  "maskdiff_meta": {
+    "best_val_loss": 0.18149739503860474,
+    "n_total": 1434,
+    "n_train": 1291,
+    "n_val": 143,
+    "token_dim": 16,
+    "global_dim": 17,
+    "max_len": 64,
+    "d_model": 48,
+    "nhead": 4,
+    "num_layers": 2,
+    "ff_dim": 96
   }
 }
