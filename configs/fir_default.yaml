@@ -52,26 +52,31 @@ grand:
   overlap_penalty: 0.35
   group_bonus_log_size: 0.1
   keep_oracle_upper_bound: true
-  rescue_bonus_cap: 2500
-  fallback_bonus_cap: 1000
-  ai_selector_fraction: 1.0
-  ai_selector_topk_bits: 160
-  ai_selector_expand_width: 32
-  ai_selector_max_primitives_in_pattern: 12
-  ai_blend_topk_bits: 160
-  ai_blend_expand_width: 32
-  ai_blend_max_primitives_in_pattern: 12
-  ai_blend_max_group_count: 16
-  ai_teacher_cap: 2500
-  bit_model_main_weight: 0.3
-  llr_model_main_weight: 0.35
-  channel_model_main_weight: 0.15
-  unsat_model_main_weight: 0.12
-  flip_model_main_weight: 0.08
+  rescue_bonus_cap: 2000
+  fallback_bonus_cap: 1500
+  ai_teacher_cap: 2000
+  # New multi-snapshot policy-value flowsearch stage
+  flow_snapshot_candidates: 3
+  flow_shortlist_topk_bits: 96
+  flow_policy_pool_bits: 16
+  flow_expand_width: 6
+  flow_max_depth: 10
+  flow_max_pairs_per_state: 4
+  flow_pair_seed_bits: 8
+  flow_value_weight: 0.55
+  flow_delta_weight: 0.20
+  flow_depth_penalty: 0.03
 training:
   snapshot_hidden_dims:
   - 128
   - 64
+  action_hidden_dims:
+  - 128
+  - 96
+  value_hidden_dims:
+  - 128
+  - 64
+  # kept for backward compatibility with older loaders/tools
   bit_hidden_dims:
   - 128
   - 96
@@ -80,6 +85,8 @@ training:
   learning_rate: 0.001
   weight_decay: 1.0e-05
   neg_to_pos_ratio: 6
+  policy_neg_to_pos_ratio: 8
+  value_negatives_per_prefix: 2
   validation_fraction: 0.1
 report:
   query_quantiles:

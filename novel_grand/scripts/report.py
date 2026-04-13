@@ -201,8 +201,11 @@ def _primitive_usage(frame_df: pd.DataFrame) -> pd.DataFrame:
 
 
 
-def _tags_stage_contribution(frame_df: pd.DataFrame) -> pd.DataFrame:
-    g_all = frame_df[frame_df["decoder"] == "tags_grand_lite"].copy()
+PRIMARY_AI_DECODER = "flowsearch_grand"
+
+
+def _ai_stage_contribution(frame_df: pd.DataFrame) -> pd.DataFrame:
+    g_all = frame_df[frame_df["decoder"] == PRIMARY_AI_DECODER].copy()
     if g_all.empty:
         return pd.DataFrame()
     rows = []
@@ -227,8 +230,8 @@ def _tags_stage_contribution(frame_df: pd.DataFrame) -> pd.DataFrame:
 
 
 
-def _tags_stage_visit(frame_df: pd.DataFrame) -> pd.DataFrame:
-    g_all = frame_df[frame_df["decoder"] == "tags_grand_lite"].copy()
+def _ai_stage_visit(frame_df: pd.DataFrame) -> pd.DataFrame:
+    g_all = frame_df[frame_df["decoder"] == PRIMARY_AI_DECODER].copy()
     if g_all.empty:
         return pd.DataFrame()
     rows = []
@@ -294,7 +297,7 @@ def _write_markdown(
     df_gain_guard_best: pd.DataFrame,
 ) -> None:
     lines = []
-    lines.append("# TAGS-GRAND report")
+    lines.append("# FlowSearch-GRAND report")
     lines.append("")
     lines.append("## Interpretation")
     lines.append("For rescue decoders, **conditional** success means success only on frames that legacy LDPC had already failed.")
@@ -309,14 +312,14 @@ def _write_markdown(
         )
     if not df_stage.empty:
         lines.append("")
-        lines.append("## TAGS stage contribution (conditional on LDPC-detected failures)")
+        lines.append("## AI stage contribution (conditional on LDPC-detected failures)")
         for _, row in df_stage.sort_values("ebn0_db").iterrows():
             lines.append(
                 f"- `Eb/N0={row['ebn0_db']:.2f} dB`: guard `{row['guard_success_rate']:.6f}`, ai `{row['ai_success_rate']:.6f}`, fallback `{row['fallback_success_rate']:.6f}`, fail `{row['failure_rate']:.6f}`."
             )
     if not df_stage_visit.empty:
         lines.append("")
-        lines.append("## TAGS stage visit rates")
+        lines.append("## AI stage visit rates")
         for _, row in df_stage_visit.sort_values("ebn0_db").iterrows():
             lines.append(
                 f"- `Eb/N0={row['ebn0_db']:.2f} dB`: guard visited `{row['guard_visit_rate']:.6f}`, ai visited `{row['ai_visit_rate']:.6f}`, fallback visited `{row['fallback_visit_rate']:.6f}`."
@@ -327,29 +330,29 @@ def _write_markdown(
         if not warn_dup.empty:
             warnings.append("High worker duplication was detected. Monte Carlo streams may not be independent across workers.")
     if not df_stage.empty and float(df_stage["ai_success_rate"].max()) <= 0.0:
-        warnings.append("The AI rescue stage contributed zero exact rescues in this run.")
+        warnings.append("The learned AI rescue stage contributed zero exact rescues in this run.")
     if not df_qhit.empty:
         hi = df_qhit[(df_qhit["decoder"] != "ldpc_only") & (df_qhit["query_cap_hit_rate"] >= 0.75)]
         if not hi.empty:
-            warnings.append("At least one rescue decoder hit its query cap on 75%+ of invoked frames, indicating saturation.")
+            warnings.append("At least one rescue decoder hit its query cap on 75%+ of invoked frames, indicating search saturation.")
         tags_budget = df_qhit[df_qhit["decoder"] == "tags_grand_lite"]["query_budget"]
         final_budget = df_qhit[df_qhit["decoder"] == "final_llr_grand"]["query_budget"]
         if not tags_budget.empty and not final_budget.empty and float(tags_budget.iloc[0]) > float(final_budget.iloc[0]):
-            warnings.append("TAGS is being compared against a smaller-budget final-LLR baseline. Use the cap-matched baselines before attributing small gains to AI ordering.")
+            warnings.append("Compare the AI decoder against the cap-matched and guard-plus baselines before attributing small gains to learned ordering.")
     if not df_gain_final_cap.empty:
         lines.append("")
         lines.append("## Budget-matched comparisons")
         for ebn0_db, g in df_gain_final_cap.groupby("ebn0_db", sort=True):
-            row = g[g["decoder"] == "tags_grand_lite"]
+            row = g[g["decoder"] == PRIMARY_AI_DECODER]
             if not row.empty:
                 gain = float(row.iloc[0]["net_success_gain_over_final_capmatched"])
-                lines.append(f"- `Eb/N0={ebn0_db:.2f} dB`: TAGS minus `final_llr_grand_capmatched` = `{gain:.6f}` net exact success.")
+                lines.append(f"- `Eb/N0={ebn0_db:.2f} dB`: FlowSearch minus `final_llr_grand_capmatched` = `{gain:.6f}` net exact success.")
     if not df_gain_guard_best.empty:
         for ebn0_db, g in df_gain_guard_best.groupby("ebn0_db", sort=True):
-            row = g[g["decoder"] == "tags_grand_lite"]
+            row = g[g["decoder"] == PRIMARY_AI_DECODER]
             if not row.empty:
                 gain = float(row.iloc[0]["net_success_gain_over_guard_plus_best_syndrome"])
-                lines.append(f"- `Eb/N0={ebn0_db:.2f} dB`: TAGS minus `guard_plus_best_syndrome` = `{gain:.6f}` net exact success.")
+                lines.append(f"- `Eb/N0={ebn0_db:.2f} dB`: FlowSearch minus `guard_plus_best_syndrome` = `{gain:.6f}` net exact success.")
     if warnings:
         lines.append("")
         lines.append("## Warnings")
@@ -384,10 +387,10 @@ def _write_markdown(
         "query_cap_hit_rate_vs_ebn0.png",
         "primitive_usage_summary.csv",
         "query_cap_hit_summary.csv",
-        "tags_stage_contribution_summary.csv",
-        "tags_stage_contribution_vs_ebn0.png",
-        "tags_stage_visit_summary.csv",
-        "tags_stage_visit_vs_ebn0.png",
+        "ai_stage_contribution_summary.csv",
+        "ai_stage_contribution_vs_ebn0.png",
+        "ai_stage_visit_summary.csv",
+        "ai_stage_visit_vs_ebn0.png",
         "worker_diversity_summary.csv",
         "worker_diversity_vs_ebn0.png",
     ]:
@@ -448,10 +451,10 @@ def main() -> None:
     df_qhit.to_csv(report_dir / "query_cap_hit_summary.csv", index=False)
     df_pusage = _primitive_usage(frame_df)
     df_pusage.to_csv(report_dir / "primitive_usage_summary.csv", index=False)
-    df_stage = _tags_stage_contribution(frame_df)
-    df_stage.to_csv(report_dir / "tags_stage_contribution_summary.csv", index=False)
-    df_stage_visit = _tags_stage_visit(frame_df)
-    df_stage_visit.to_csv(report_dir / "tags_stage_visit_summary.csv", index=False)
+    df_stage = _ai_stage_contribution(frame_df)
+    df_stage.to_csv(report_dir / "ai_stage_contribution_summary.csv", index=False)
+    df_stage_visit = _ai_stage_visit(frame_df)
+    df_stage_visit.to_csv(report_dir / "ai_stage_visit_summary.csv", index=False)
     df_div = _worker_diversity(frame_df)
     df_div.to_csv(report_dir / "worker_diversity_summary.csv", index=False)
 
@@ -477,9 +480,9 @@ def main() -> None:
     if not df_qhit.empty:
         _line_plot(df_qhit, "ebn0_db", "query_cap_hit_rate", report_dir / "query_cap_hit_rate_vs_ebn0.png", "Query-budget hit rate", include_ldpc=False)
     if not df_stage.empty:
-        _line_plot_multi(df_stage, "ebn0_db", ["guard_success_rate", "ai_success_rate", "fallback_success_rate", "failure_rate"], report_dir / "tags_stage_contribution_vs_ebn0.png", "Rate over invoked TAGS frames")
+        _line_plot_multi(df_stage, "ebn0_db", ["guard_success_rate", "ai_success_rate", "fallback_success_rate", "failure_rate"], report_dir / "ai_stage_contribution_vs_ebn0.png", "Rate over invoked AI-rescue frames")
     if not df_stage_visit.empty:
-        _line_plot_multi(df_stage_visit, "ebn0_db", ["guard_visit_rate", "ai_visit_rate", "fallback_visit_rate"], report_dir / "tags_stage_visit_vs_ebn0.png", "Stage visit rate")
+        _line_plot_multi(df_stage_visit, "ebn0_db", ["guard_visit_rate", "ai_visit_rate", "fallback_visit_rate"], report_dir / "ai_stage_visit_vs_ebn0.png", "Stage visit rate")
     if not df_div.empty:
         _line_plot(df_div, "ebn0_db", "avg_unique_outcomes_per_frame_slot", report_dir / "worker_diversity_vs_ebn0.png", "Avg unique worker outcomes / frame slot")
 

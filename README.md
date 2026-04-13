@@ -1,20 +1,31 @@
 # Novel GRAND package for FIR
 
-This overlay adds a **Sionna-based 5G NR LDPC + TAGS-GRAND-Lite** research pipeline to your FIR repo and existing `.venv-fir`.
+This is a **full standalone package** for a Sionna-based **5G NR LDPC + FlowSearch-GRAND** study on FIR.
 
 ## Mechanism in one paragraph
 
-The package keeps a **legacy 5G NR LDPC decoder** as the main decoder. For the rare frames that still have a **non-zero syndrome after the LDPC iteration cap**, it stores the full BP trajectory, learns which iteration snapshot is the best rescue point, learns which bits are most likely still wrong, and then runs an **exact syndrome-checked GRAND-style search** over a mix of **single-bit** and **group** flip primitives induced by the Tanner graph and OFDM/QAM structure.
+The package keeps the **legacy 5G NR LDPC decoder** as the primary decoder. Only frames with **non-zero syndrome after the LDPC iteration cap** go to the rescue path. The rescue path first runs a strong **final-LLR GRAND guard** on the final LDPC snapshot. If that fails, it uses a **learned snapshot selector** to seed a **multi-snapshot policy-value tree search** over exact syndrome-preserving correction patterns. That search is followed by a conservative **best-syndrome LLR fallback**. Every rescue candidate is still validated by **exact syndrome checking** on the transmitted rate-matched code.
+
+## Why this package exists
+
+The previous TAGS-GRAND path showed that the overall pipeline was working, but the **AI stage itself was contributing almost no exact rescues**. This package replaces that path with a different AI architecture:
+
+- a **teacher-aligned snapshot selector**,
+- a **learned action prior** for the next flip action,
+- a **learned state-value model** for partial correction patterns,
+- a **best-first multi-snapshot tree search** under a fixed rescue budget.
+
+This is meant to test whether **set-level search guidance** is more effective than the earlier static bit-ranking path.
 
 ## Important implementation detail
 
-For Sionna 5G NR LDPC, `LDPC5GEncoder.pcm` is the **mother-code** parity-check matrix before rate-matching, while the encoder output has the **rate-matched** length `n`. Because of that, this package derives and caches an **effective parity-check matrix for the transmitted rate-matched code** the first time it runs. That cache is written to:
+For Sionna 5G NR LDPC, `LDPC5GEncoder.pcm` is the **mother-code** parity-check matrix before rate-matching, while the encoder output has the **rate-matched** transmitted length `n`. Because of that, this package derives and caches an **effective parity-check matrix for the transmitted rate-matched code** on first use.
+
+That cache is written to:
 
 ```text
 outputs/_effective_code_cache/
 ```
-
-The smoke script prepares this cache automatically before running the trace code.
 
 ## Install into the repo
 
@@ -24,7 +35,7 @@ From:
 cd /home/rsadve1/scratch/Novel_GRAND
 ```
 
-unzip the overlay at repo root, then install the package into the already-working venv:
+unzip the package at repo root, then install it into the already-working venv:
 
 ```bash
 source env/activate_fir.sh
@@ -39,7 +50,7 @@ Run the interactive smoke wrapper:
 bash tools/check_tags_package.sh
 ```
 
-This wrapper always leaves a log in:
+This leaves a log in:
 
 ```text
 probe_outputs/check_tags_package_<timestamp>.log
@@ -51,6 +62,12 @@ Smoke:
 
 ```bash
 sbatch slurm/00_smoke_tags_grand.sbatch
+```
+
+Legacy probe:
+
+```bash
+bash slurm/submit_legacy_probe.sh
 ```
 
 Full pipeline:
@@ -70,14 +87,11 @@ outputs/<experiment_name>/
 Key folders:
 
 ```text
-smoke/             smoke summary
-train/shards/      raw training shards from failed LDPC traces
-models/            trained snapshot selector + bit ranker
-eval/shards/       per-frame evaluation rows
+smoke/                 smoke summary
+probe/shards/          legacy-LDPC probe shards
+train/shards/          raw training shards from failed LDPC traces
+models/                trained snapshot selector + action prior + state value model
+eval/shards/           per-frame evaluation rows
 eval/sampled_failures/ representative failure traces
-reports/           merged CSVs, plots, markdown summary
+reports/               merged CSVs, plots, markdown summary
 ```
-
-
-## v6 note
-The default evaluation now includes cap-matched non-AI baselines so that any TAGS gain can be judged against equal query budgets.
