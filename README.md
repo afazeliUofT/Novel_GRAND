@@ -1,98 +1,45 @@
-# Novel GRAND package for FIR
+# Novel_GRAND
 
-This is a **full standalone package** for a Sionna-based **5G NR LDPC + MaskDiff-GRAND** study on FIR.
+Standalone CPU package for FIR experiments on **5G NR LDPC + AI-aided GRAND rescue**.
 
-## Mechanism in one paragraph
+This release uses **GFlow-TTA GRAND** as the main AI rescue path:
 
-The package keeps the **legacy 5G NR LDPC decoder** as the primary decoder. Only frames with **non-zero syndrome after the LDPC iteration cap** go to the rescue path. The rescue path first runs a strong **final-LLR GRAND guard** on the final LDPC snapshot. If that fails, it uses a **learned snapshot selector** to choose a promising failed-BP snapshot and then runs a **verifier-guided masked-diffusion set generator** on a conservative shortlist of risky bits. The diffusion stage proposes full correction sets rather than one-step flips, and every candidate is still validated by **exact syndrome checking** on the transmitted rate-matched code. A conservative **best-syndrome LLR fallback** remains in place after the AI stage.
+- legacy 5G NR LDPC first
+- strong final-LLR GRAND guard on detected failures
+- learned snapshot selector
+- GFlow-inspired diverse set generation on the selected snapshot
+- cheap test-time adaptation by consensus reconditioning
+- exact local repair and exact syndrome verification
+- conservative best-syndrome fallback
 
-## Why this package exists
+The package is designed for the following workflow:
 
-The previous FlowSearch-GRAND path showed that the selector was useful, but the **AI rescue stage itself still contributed almost no exact rescues**. This package replaces that path with a different AI architecture inspired by recent discrete diffusion and inference-time search advances:
+1. preserve `.git`, `.gitignore`, `.venv-fir`
+2. wipe the rest of the repo directory
+3. unzip this package
+4. reinstall editable into the existing venv
+5. run smoke → probe → full pipeline
+6. push compact reports and plots to GitHub
 
-- a **teacher-aligned snapshot selector**,
-- a **masked discrete denoiser** over a shortlist of candidate bits,
-- a **parallel unmasking sampler** that proposes whole correction sets,
-- a lightweight **consensus reconditioning** round,
-- and a **local exact-repair** step under the same fixed rescue budget.
+## Main scripts
 
-This is meant to test whether **whole-set generative search** is more effective than local tree expansion over individual actions.
+- `bash tools/check_tags_package.sh`
+- `sbatch slurm/00_smoke_tags_grand.sbatch`
+- `bash slurm/submit_legacy_probe.sh`
+- `bash tools/check_pipeline_status.sh`
+- `bash slurm/submit_tags_grand_pipeline.sh`
 
-## Important implementation detail
+## Main output directories
 
-For Sionna 5G NR LDPC, `LDPC5GEncoder.pcm` is the **mother-code** parity-check matrix before rate-matching, while the encoder output has the **rate-matched** transmitted length `n`. Because of that, this package derives and caches an **effective parity-check matrix for the transmitted rate-matched code** on first use.
+- `outputs/fir_tags_grand_smoke/`
+- `outputs/fir_legacy_probe_default/`
+- `outputs/fir_tags_grand_autotuned/`
 
-That cache is written to:
+## Important report files
 
-```text
-outputs/_effective_code_cache/
-```
-
-## Install into the repo
-
-From:
-
-```bash
-cd /home/rsadve1/scratch/Novel_GRAND
-```
-
-unzip the package at repo root, then install it into the already-working venv:
-
-```bash
-source env/activate_fir.sh
-python -m pip install -e .
-```
-
-## Safe first check
-
-Run the interactive smoke wrapper:
-
-```bash
-bash tools/check_tags_package.sh
-```
-
-This leaves a log in:
-
-```text
-probe_outputs/check_tags_package_<timestamp>.log
-```
-
-## Slurm usage
-
-Smoke:
-
-```bash
-sbatch slurm/00_smoke_tags_grand.sbatch
-```
-
-Legacy probe:
-
-```bash
-bash slurm/submit_legacy_probe.sh
-```
-
-Full pipeline:
-
-```bash
-bash slurm/submit_tags_grand_pipeline.sh
-```
-
-## Output layout
-
-All outputs land under:
-
-```text
-outputs/<experiment_name>/
-```
-
-Key folders:
-
-```text
-smoke/                 smoke summary
-probe/shards/          legacy-LDPC probe shards
-train/shards/          raw training shards from failed LDPC traces
-models/                trained snapshot selector + masked-diffusion model
-eval/shards/           per-frame evaluation rows
-eval/sampled_failures/ representative failure traces
-reports/               merged CSVs, plots, markdown summary
-```
+- `reports/summary_eval.csv`
+- `reports/net_success_gain_over_final_capmatched.csv`
+- `reports/net_success_gain_over_guard_plus_best_syndrome.csv`
+- `reports/ai_stage_contribution_summary.csv`
+- `reports/query_efficiency_summary.csv`
+- `reports/worker_diversity_summary.csv`

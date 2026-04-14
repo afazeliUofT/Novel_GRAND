@@ -140,7 +140,7 @@ def _decoder_budget(cfg: dict, decoder: str) -> int:
     if decoder == "ldpc_only":
         return 0
     q_main = int(cfg["grand"]["query_cap"])
-    if decoder in {"tags_grand_lite", "flowsearch_grand", "maskdiff_grand"}:
+    if decoder in {"tags_grand_lite", "flowsearch_grand", "maskdiff_grand", "gflowtta_grand"}:
         q_rescue = int(cfg["grand"].get("rescue_bonus_cap", q_main))
         q_fb = int(cfg["grand"].get("fallback_bonus_cap", max(1000, q_main // 2)))
         return q_main + q_rescue + q_fb
@@ -201,7 +201,7 @@ def _primitive_usage(frame_df: pd.DataFrame) -> pd.DataFrame:
 
 
 
-PRIMARY_AI_DECODER = "maskdiff_grand"
+PRIMARY_AI_DECODER = "gflowtta_grand"
 
 
 def _ai_stage_contribution(frame_df: pd.DataFrame) -> pd.DataFrame:

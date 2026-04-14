@@ -54,27 +54,29 @@ grand:
   keep_oracle_upper_bound: true
   rescue_bonus_cap: 2000
   fallback_bonus_cap: 1500
-  ai_teacher_cap: 2000
-  mdiff_shortlist_bits: 64
-  mdiff_snapshot_candidates: 2
-  mdiff_primary_snapshot_fraction: 0.7
-  mdiff_beam_width: 8
-  mdiff_max_complete_candidates: 8
-  mdiff_reveal_schedule:
-  - 8
-  - 8
-  - 8
-  - 8
-  - 16
-  - 16
-  mdiff_local_repair_bits: 20
-  mdiff_local_repair_expand_width: 12
-  mdiff_local_repair_max_toggles: 3
-  mdiff_local_repair_budget_per_candidate: 32
-  mdiff_consensus_topn: 4
-  mdiff_consensus_strength: 1.0
-  mdiff_consensus_budget: 256
-  mdiff_seed_offset: 17
+  ai_teacher_cap: 2500
+  gflow_snapshot_candidates: 2
+  gflow_primary_budget_fraction: 0.8
+  gflow_shortlist_topk_bits: 96
+  gflow_policy_pool_bits: 24
+  gflow_beam_width: 8
+  gflow_max_depth: 10
+  gflow_expand_width: 8
+  gflow_stochastic_expand: 2
+  gflow_max_pairs_per_state: 4
+  gflow_pair_seed_bits: 8
+  gflow_top_complete_candidates: 12
+  gflow_value_weight: 0.45
+  gflow_llr_bias_weight: 0.25
+  gflow_depth_penalty: 0.03
+  gflow_tta_topn: 4
+  gflow_tta_strength: 1.0
+  gflow_seed_offset: 31
+  gflow_local_repair_bits: 20
+  gflow_local_repair_expand_width: 12
+  gflow_local_repair_max_toggles: 3
+  gflow_neg_to_pos_ratio: 6
+  gflow_value_negatives_per_prefix: 3
 training:
   snapshot_hidden_dims:
   - 128
@@ -82,18 +84,17 @@ training:
   bit_hidden_dims:
   - 128
   - 96
+  action_hidden_dims:
+  - 128
+  - 96
+  value_hidden_dims:
+  - 128
+  - 96
   epochs: 24
   batch_size: 2048
   learning_rate: 0.001
   weight_decay: 1.0e-05
   validation_fraction: 0.1
-  maskdiff_d_model: 48
-  maskdiff_num_heads: 4
-  maskdiff_num_layers: 2
-  maskdiff_ffn_dim: 96
-  maskdiff_dropout: 0.0
-  maskdiff_batch_size: 192
-  maskdiff_corruptions_per_frame: 6
 report:
   query_quantiles:
   - 0.5

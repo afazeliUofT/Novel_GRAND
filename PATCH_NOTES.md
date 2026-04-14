@@ -1,23 +1,50 @@
-# Patch notes: standalone v8 MaskDiff-GRAND package
+# Novel_GRAND standalone v9: GFlow-TTA GRAND
 
-This standalone package replaces the previous FlowSearch-GRAND AI stage with a new **MaskDiff-GRAND** rescue path.
+This standalone package replaces the weak `maskdiff_grand` AI rescue path with
+`gflowtta_grand`, a **GFlow-inspired, test-time-adapted** exact-verifier rescue
+mechanism.
 
-## Main changes
+## Why this update
 
-- Replaced the multi-snapshot policy-value tree search with a **verifier-guided masked-diffusion set generator**.
-- Kept the **teacher-aligned snapshot selector**, because the previous run showed that the selector was useful even though the search stage was weak.
-- Trains the AI only on **post-guard failures**, i.e. the distribution the AI stage actually sees at inference.
-- Generates **whole correction-set hypotheses** on a shortlist of risky bits, instead of stepwise local actions.
-- Adds a lightweight **consensus reconditioning** pass and a local exact-repair step.
-- Keeps **budget-matched baselines** so the next run can decide clearly whether the new AI stage is actually useful.
+The pushed v8 results showed:
 
-## Why this update exists
+- `maskdiff_grand` only marginally beat `final_llr_grand_capmatched`.
+- It did **not** beat `guard_plus_best_syndrome` consistently.
+- The AI stage contributed essentially no exact rescues.
+- The snapshot selector remained useful, but the downstream AI rescue was not.
 
-The previous package showed:
+## What changed
 
-- the pipeline was mechanically sound,
-- the selected snapshot moved much closer to oracle,
-- but the AI stage itself still contributed almost nothing,
-- and the strongest non-AI two-stage baseline remained hard to beat.
+- Added `novel_grand/grand/gflowtta.py`
+- Reused the existing snapshot selector and policy/value training rows in
+  `novel_grand/ldpc/pv_features.py`
+- Replaced masked-diffusion training with:
+  - `snapshot_selector.pt`
+  - `action_prior.pt`
+  - `state_value.pt`
+- The new AI stage now does:
+  1. final-LLR guard
+  2. learned snapshot selection
+  3. diverse constructive candidate generation on the selected snapshot
+  4. cheap test-time adaptation via consensus bias
+  5. exact local repair + exact syndrome verification
+  6. conservative best-syndrome fallback
 
-This package therefore changes the **AI rescue architecture itself**, not just the reporting or scheduling.
+## Metrics to inspect after the run
+
+- `summary_eval.csv`
+- `net_success_gain_over_final_capmatched.csv`
+- `net_success_gain_over_guard_plus_best_syndrome.csv`
+- `ai_stage_contribution_summary.csv`
+- `query_efficiency_summary.csv`
+- `worker_diversity_summary.csv`
+
+## Success criterion for v9
+
+`gflowtta_grand` should beat both:
+
+- `final_llr_grand_capmatched`
+- `guard_plus_best_syndrome`
+
+by a **clearly larger** margin than v8, with a materially nonzero AI-stage
+contribution.

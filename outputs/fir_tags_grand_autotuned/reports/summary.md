@@ -12,28 +12,28 @@ For rescue decoders, **conditional** success means success only on frames that l
 - `Eb/N0=14.00 dB`: **oracle_best_llr** with net exact success `0.963938` and average queries per original frame `182.28`.
 
 ## AI stage contribution (conditional on LDPC-detected failures)
-- `Eb/N0=10.00 dB`: guard `0.150224`, ai `0.000641`, fallback `0.007687`, fail `0.841448`.
-- `Eb/N0=11.00 dB`: guard `0.135840`, ai `0.000000`, fallback `0.006516`, fail `0.857644`.
-- `Eb/N0=12.00 dB`: guard `0.145251`, ai `0.000000`, fallback `0.004190`, fail `0.850559`.
+- `Eb/N0=10.00 dB`: guard `0.150224`, ai `0.000000`, fallback `0.008008`, fail `0.841768`.
+- `Eb/N0=11.00 dB`: guard `0.135840`, ai `0.000501`, fallback `0.006516`, fail `0.857143`.
+- `Eb/N0=12.00 dB`: guard `0.145251`, ai `0.000698`, fallback `0.004190`, fail `0.849860`.
 - `Eb/N0=13.00 dB`: guard `0.169458`, ai `0.000000`, fallback `0.006897`, fail `0.823645`.
 - `Eb/N0=14.00 dB`: guard `0.226018`, ai `0.000000`, fallback `0.005256`, fail `0.768725`.
 
 ## AI stage visit rates
-- `Eb/N0=10.00 dB`: guard visited `1.000000`, ai visited `0.849776`, fallback visited `0.849135`.
-- `Eb/N0=11.00 dB`: guard visited `1.000000`, ai visited `0.864160`, fallback visited `0.864160`.
-- `Eb/N0=12.00 dB`: guard visited `1.000000`, ai visited `0.854749`, fallback visited `0.854749`.
+- `Eb/N0=10.00 dB`: guard visited `1.000000`, ai visited `0.849776`, fallback visited `0.849776`.
+- `Eb/N0=11.00 dB`: guard visited `1.000000`, ai visited `0.864160`, fallback visited `0.863659`.
+- `Eb/N0=12.00 dB`: guard visited `1.000000`, ai visited `0.854749`, fallback visited `0.854050`.
 - `Eb/N0=13.00 dB`: guard visited `1.000000`, ai visited `0.830542`, fallback visited `0.830542`.
 - `Eb/N0=14.00 dB`: guard visited `1.000000`, ai visited `0.773982`, fallback visited `0.773982`.
 
 ## Budget-matched comparisons
-- `Eb/N0=10.00 dB`: MaskDiff minus `final_llr_grand_capmatched` = `0.001375` net exact success.
-- `Eb/N0=11.00 dB`: MaskDiff minus `final_llr_grand_capmatched` = `0.000437` net exact success.
-- `Eb/N0=12.00 dB`: MaskDiff minus `final_llr_grand_capmatched` = `0.000250` net exact success.
+- `Eb/N0=10.00 dB`: MaskDiff minus `final_llr_grand_capmatched` = `0.001312` net exact success.
+- `Eb/N0=11.00 dB`: MaskDiff minus `final_llr_grand_capmatched` = `0.000500` net exact success.
+- `Eb/N0=12.00 dB`: MaskDiff minus `final_llr_grand_capmatched` = `0.000312` net exact success.
 - `Eb/N0=13.00 dB`: MaskDiff minus `final_llr_grand_capmatched` = `0.000312` net exact success.
 - `Eb/N0=14.00 dB`: MaskDiff minus `final_llr_grand_capmatched` = `0.000250` net exact success.
-- `Eb/N0=10.00 dB`: MaskDiff minus `guard_plus_best_syndrome` = `-0.000063` net exact success.
-- `Eb/N0=11.00 dB`: MaskDiff minus `guard_plus_best_syndrome` = `-0.000250` net exact success.
-- `Eb/N0=12.00 dB`: MaskDiff minus `guard_plus_best_syndrome` = `-0.000062` net exact success.
+- `Eb/N0=10.00 dB`: MaskDiff minus `guard_plus_best_syndrome` = `-0.000125` net exact success.
+- `Eb/N0=11.00 dB`: MaskDiff minus `guard_plus_best_syndrome` = `-0.000188` net exact success.
+- `Eb/N0=12.00 dB`: MaskDiff minus `guard_plus_best_syndrome` = `0.000000` net exact success.
 - `Eb/N0=13.00 dB`: MaskDiff minus `guard_plus_best_syndrome` = `0.000000` net exact success.
 - `Eb/N0=14.00 dB`: MaskDiff minus `guard_plus_best_syndrome` = `-0.000188` net exact success.
 
