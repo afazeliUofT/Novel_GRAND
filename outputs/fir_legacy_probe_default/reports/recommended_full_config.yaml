@@ -44,65 +44,29 @@ legacy_ldpc:
   early_stop: true
 grand:
   topk_bits: 96
-  individual_init_width: 48
   query_cap: 5000
-  max_primitives_in_pattern: 10
-  max_group_count: 20
-  search_expand_width: 10
-  overlap_penalty: 0.35
-  group_bonus_log_size: 0.1
   keep_oracle_upper_bound: true
   rescue_bonus_cap: 2000
   fallback_bonus_cap: 1500
-  ai_teacher_cap: 2500
-  memo_teacher_cap: 2500
-  memo_snapshot_candidates: 3
-  memo_risky_topk: 64
-  memo_topk_retrieve: 16
-  memo_templates_to_expand: 8
-  memo_variants_per_template: 3
-  memo_diversity_penalty: 0.1
-  memo_tta_strength: 1.0
-  memo_local_pool_extra: 12
-  memo_local_pool_cap: 20
-  memo_local_repair_max_toggles: 2
-  memo_negatives_per_positive: 6
-  gflow_snapshot_candidates: 2
-  gflow_primary_budget_fraction: 0.8
-  gflow_shortlist_topk_bits: 96
-  gflow_policy_pool_bits: 24
-  gflow_beam_width: 8
-  gflow_max_depth: 10
-  gflow_expand_width: 8
-  gflow_stochastic_expand: 2
-  gflow_max_pairs_per_state: 4
-  gflow_pair_seed_bits: 8
-  gflow_top_complete_candidates: 12
-  gflow_value_weight: 0.45
-  gflow_llr_bias_weight: 0.25
-  gflow_depth_penalty: 0.03
-  gflow_tta_topn: 4
-  gflow_tta_strength: 1.0
-  gflow_seed_offset: 31
-  gflow_local_repair_bits: 20
-  gflow_local_repair_expand_width: 12
-  gflow_local_repair_max_toggles: 3
-  gflow_neg_to_pos_ratio: 6
-  gflow_value_negatives_per_prefix: 3
+  total_capmatched_budget: 8500
+  active_teacher_cap: 8500
+  astar_snapshot_candidates: 2
+  astar_topk_bits: 14
+  astar_active_set_cap: 22
+  astar_unsat_groups: 8
+  astar_keep_per_syndrome: 8
+  astar_top_candidates: 16
+  astar_accept_gap: 0.15
+  astar_tta_temps:
+  - 0.8
+  - 1.0
+  - 1.25
+  astar_tta_probe_topk: 16
 training:
   snapshot_hidden_dims:
   - 128
   - 64
   bit_hidden_dims:
-  - 128
-  - 96
-  action_hidden_dims:
-  - 128
-  - 96
-  value_hidden_dims:
-  - 128
-  - 96
-  template_hidden_dims:
   - 128
   - 96
   epochs: 24

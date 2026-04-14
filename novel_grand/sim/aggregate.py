@@ -23,20 +23,13 @@ def summarize_frames(
     df: pd.DataFrame,
     quantiles: tuple[float, ...] = (0.5, 0.9, 0.99),
 ) -> pd.DataFrame:
-    """Summarize evaluation rows with both conditional and net metrics.
-
-    Important distinction:
-    - ``ldpc_only`` rows exist for *every* frame.
-    - rescue decoder rows exist only for *legacy-detected-failure* frames.
-
-    Therefore, rescue ``success_exact`` means *conditional rescue success*
-    unless it is combined back with the legacy successes.
-    """
     if df.empty:
         return pd.DataFrame()
 
     df = df.copy()
     df["ebn0_db"] = df["ebn0_db"].astype(float)
+    if "solver_states" not in df.columns:
+        df["solver_states"] = 0
 
     out_rows: List[Dict] = []
 
@@ -58,6 +51,7 @@ def summarize_frames(
             g = g.reset_index(drop=True)
             n_invoked_frames = int(len(g))
             queries = g["queries"].to_numpy(dtype=float)
+            solver_states = g["solver_states"].to_numpy(dtype=float) if "solver_states" in g.columns else np.zeros(len(g), dtype=float)
 
             conditional_exact_successes = int(g["success_exact"].sum())
             conditional_valid_codewords = int(g["valid_codeword"].sum())
@@ -79,22 +73,22 @@ def summarize_frames(
                 "n_invoked_frames": n_invoked_frames,
                 "legacy_detected_failures": legacy_detected_failures,
                 "legacy_detected_failure_rate": float(legacy_detected_failure_rate),
-                # Conditional / invoked-only metrics
                 "conditional_exact_success_rate": float(conditional_exact_successes / max(n_invoked_frames, 1)),
                 "conditional_valid_codeword_rate": float(conditional_valid_codewords / max(n_invoked_frames, 1)),
                 "conditional_undetected_error_rate": float(conditional_undetected_errors / max(n_invoked_frames, 1)),
                 "avg_queries_on_invoked_frames": float(np.mean(queries)) if queries.size else 0.0,
+                "avg_solver_states_on_invoked_frames": float(np.mean(solver_states)) if solver_states.size else 0.0,
                 "avg_pattern_weight": float(g["pattern_weight"].mean()) if n_invoked_frames else 0.0,
                 "avg_selected_snapshot": float(g["selected_snapshot"].mean()) if n_invoked_frames else 0.0,
                 "avg_frontier_peak": float(g["frontier_peak"].mean()) if n_invoked_frames else 0.0,
-                # Net / whole-frame metrics
                 "net_exact_success_rate": float(net_exact_successes / n_original_frames),
                 "net_valid_codeword_rate": float(net_valid_codewords / n_original_frames),
                 "net_undetected_error_rate": float(net_undetected_errors / n_original_frames),
                 "net_frame_error_rate": float(1.0 - (net_exact_successes / n_original_frames)),
                 "avg_queries_per_original_frame": float(queries.sum() / n_original_frames),
+                "avg_solver_states_per_original_frame": float(solver_states.sum() / n_original_frames),
                 "total_queries": float(queries.sum()),
-                # Backward-compatible aliases
+                "total_solver_states": float(solver_states.sum()),
                 "n_frames": n_invoked_frames,
                 "success_exact_rate": float(conditional_exact_successes / max(n_invoked_frames, 1)),
                 "valid_codeword_rate": float(conditional_valid_codewords / max(n_invoked_frames, 1)),
@@ -110,8 +104,4 @@ def summarize_frames(
 
             out_rows.append(row)
 
-    return (
-        pd.DataFrame(out_rows)
-        .sort_values(["decoder", "ebn0_db"])
-        .reset_index(drop=True)
-    )
+    return pd.DataFrame(out_rows).sort_values(["decoder", "ebn0_db"]).reset_index(drop=True)

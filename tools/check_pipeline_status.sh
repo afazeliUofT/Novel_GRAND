@@ -41,6 +41,9 @@ check_file "outputs/fir_tags_grand_autotuned/reports/net_success_gain_over_final
 check_file "outputs/fir_tags_grand_autotuned/reports/net_success_gain_over_final_capmatched.csv"
 check_file "outputs/fir_tags_grand_autotuned/reports/net_success_gain_over_guard_plus_best_syndrome.csv"
 check_file "outputs/fir_tags_grand_autotuned/reports/net_exact_success_rate_vs_ebn0.png"
+check_file "outputs/fir_tags_grand_autotuned/reports/net_exact_success_rate_vs_ebn0.pdf"
+check_file "outputs/fir_tags_grand_autotuned/reports/publication_main_table.csv"
+check_file "outputs/fir_tags_grand_autotuned/reports/publication_delta_table.csv"
 
 if [[ -f outputs/fir_tags_grand_autotuned/reports/summary.md && -f outputs/fir_tags_grand_autotuned/reports/summary_eval.csv ]]; then
   if [[ outputs/fir_tags_grand_autotuned/reports/summary.md -ot outputs/fir_tags_grand_autotuned/reports/summary_eval.csv ]]; then

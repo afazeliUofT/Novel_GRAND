@@ -2,7 +2,7 @@ experiment_name: fir_tags_grand_smoke
 output_root: outputs
 system:
   device: cpu
-  num_workers: 8
+  num_workers: 1
   torch_threads_per_worker: 1
   seed: 20260411
 nr:
@@ -13,72 +13,52 @@ nr:
   fft_size: 24
   cyclic_prefix_length: 0
   subcarrier_spacing_hz: 30000.0
-  num_guard_carriers:
-  - 0
-  - 0
+  num_guard_carriers: [0, 0]
   dc_null: false
 channel:
   mode: tdl
   delay_profile: C300
   delay_spread_s: 3.0e-07
-  carrier_frequency_hz: 3.5e9
+  carrier_frequency_hz: 3500000000.0
   min_speed_mps: 2.0
   max_speed_mps: 8.33
   perfect_csi_equalization: true
   eps_equalizer: 1.0e-08
 simulation:
-  ebn0_db_list:
-  - 6.0
-  train_frames_per_worker_per_snr: 8
-  eval_frames_per_worker_per_snr: 12
-  sampled_failure_traces_per_worker_per_snr: 3
+  ebn0_db_list: [12.0]
+  train_frames_per_worker_per_snr: 2
+  eval_frames_per_worker_per_snr: 2
+  sampled_failure_traces_per_worker_per_snr: 1
 legacy_ldpc:
-  num_iter: 8
+  num_iter: 12
   cn_update: minsum
   cn_schedule: layered
   llr_max: 8.0
   early_stop: true
 grand:
-  topk_bits: 48
-  individual_init_width: 24
-  query_cap: 500
-  max_primitives_in_pattern: 6
-  max_group_count: 8
-  search_expand_width: 6
-  overlap_penalty: 0.35
-  group_bonus_log_size: 0.1
+  topk_bits: 96
+  query_cap: 5000
   keep_oracle_upper_bound: true
-  rescue_bonus_cap: 300
-  fallback_bonus_cap: 100
-  ai_selector_fraction: 1.0
-  ai_selector_topk_bits: 64
-  ai_selector_expand_width: 12
-  ai_selector_max_primitives_in_pattern: 8
-  ai_blend_topk_bits: 64
-  ai_blend_expand_width: 12
-  ai_blend_max_primitives_in_pattern: 8
-  ai_blend_max_group_count: 8
-  ai_teacher_cap: 300
-  bit_model_main_weight: 0.3
-  llr_model_main_weight: 0.35
-  channel_model_main_weight: 0.15
-  unsat_model_main_weight: 0.12
-  flip_model_main_weight: 0.08
+  rescue_bonus_cap: 2000
+  fallback_bonus_cap: 1500
+  total_capmatched_budget: 8500
+  active_teacher_cap: 8500
+  astar_snapshot_candidates: 2
+  astar_topk_bits: 14
+  astar_active_set_cap: 22
+  astar_unsat_groups: 8
+  astar_keep_per_syndrome: 8
+  astar_top_candidates: 16
+  astar_accept_gap: 0.15
+  astar_tta_temps: [0.80, 1.00, 1.25]
+  astar_tta_probe_topk: 16
 training:
-  snapshot_hidden_dims:
-  - 32
-  - 16
-  bit_hidden_dims:
-  - 48
-  - 32
-  epochs: 3
-  batch_size: 512
+  snapshot_hidden_dims: [128, 64]
+  bit_hidden_dims: [128, 96]
+  epochs: 2
+  batch_size: 64
   learning_rate: 0.001
   weight_decay: 1.0e-05
-  neg_to_pos_ratio: 4
-  validation_fraction: 0.2
+  validation_fraction: 0.1
 report:
-  query_quantiles:
-  - 0.5
-  - 0.9
-  - 0.99
+  query_quantiles: [0.5, 0.9, 0.99]

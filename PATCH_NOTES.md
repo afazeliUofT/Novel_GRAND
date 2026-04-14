@@ -1,48 +1,48 @@
-# Novel_GRAND standalone v10: MEMO-TTA GRAND
+# Novel_GRAND standalone v11 — Active-Set MiM GRAND
 
-This standalone package replaces the weak `gflowtta_grand` AI rescue path with
-`memotta_grand`, a **memory-augmented, test-time-adapted** exact-verifier rescue
-mechanism.
+This package replaces the weak AI generator path with a solver-augmented rescue decoder.
 
-## Why this update
+## Main idea
 
-The pushed v9 results showed:
+After the strong `final_llr_grand` guard, the AI is used only where the previous experiments showed signal:
 
-- `gflowtta_grand` only marginally beat `final_llr_grand_capmatched`.
-- It did **not** beat `guard_plus_best_syndrome` consistently.
-- The AI stage contributed essentially no exact rescues.
-- The snapshot selector remained useful, but the downstream AI rescue was not.
+1. select the best LDPC snapshot;
+2. score a compact active set of risky bits on that snapshot;
+3. solve the residual syndrome equation **exactly** inside that active set with a meet-in-the-middle solver;
+4. use a conservative `best_syndrome_llr` fallback only if the active-set candidate is too ambiguous or fails.
 
-## What changed
+## Why this is different
 
-- Added `novel_grand/grand/memotta.py`
-- Reused the useful snapshot selector
-- Replaced weak action generation with a persistent memory bank of successful
-  post-guard rescue templates
-- Added a learned `template_ranker.pt`
-- The new AI stage now does:
-  1. final-LLR guard
-  2. learned snapshot selection
-  3. retrieve similar successful rescue templates
-  4. cheap test-time adaptation of template scores
-  5. exact local repair + exact syndrome verification
-  6. conservative best-syndrome fallback
+Earlier packages tried to have AI generate correction patterns directly.
+The repo results showed that:
 
-## Metrics to inspect after the run
+- the snapshot selector was consistently useful;
+- the downstream AI generator/search stage contributed very little;
+- cap-matched non-AI baselines remained hard to beat.
 
-- `summary_eval.csv`
-- `net_success_gain_over_final_capmatched.csv`
-- `net_success_gain_over_guard_plus_best_syndrome.csv`
-- `ai_stage_contribution_summary.csv`
-- `query_efficiency_summary.csv`
-- `worker_diversity_summary.csv`
+This version therefore moves to a **verifier-guided neuro-symbolic solver**:
+AI proposes the *where*, and an exact solver handles the *what*.
 
-## Success criterion for v10
+## Outputs added for publication-quality reporting
 
-`memotta_grand` should beat both:
+The report stage now writes both **PNG** and **PDF** plots plus compact CSV tables, including:
 
-- `final_llr_grand_capmatched`
-- `guard_plus_best_syndrome`
+- `publication_main_table.csv`
+- `net_exact_success_rate_vs_ebn0.{png,pdf}`
+- `net_success_gain_over_final_capmatched_vs_ebn0.{png,pdf}`
+- `net_success_gain_over_guard_plus_best_syndrome_vs_ebn0.{png,pdf}`
+- `query_efficiency_vs_ebn0.{png,pdf}`
+- `solver_efficiency_vs_ebn0.{png,pdf}`
+- `ai_stage_contribution_vs_ebn0.{png,pdf}`
+- `worker_diversity_vs_ebn0.{png,pdf}`
 
-by a **clearly larger** margin than v9, with a materially nonzero AI-stage
-contribution.
+## Runtime philosophy
+
+Walltimes stay close to the observed FIR runtimes:
+
+- smoke: 10 min
+- probe: 15 min
+- collect: 25 min
+- train: 20 min
+- eval: 25 min
+- report: 10 min

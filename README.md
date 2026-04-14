@@ -1,45 +1,53 @@
-# Novel_GRAND
+# Novel_GRAND — Active-Set MiM GRAND
 
-Standalone CPU package for FIR experiments on **5G NR LDPC + AI-aided GRAND rescue**.
+This repository evaluates a hybrid **5G NR LDPC + GRAND rescue** pipeline on FIR using Sionna-generated 5G NR channels.
 
-This release uses **MEMO-TTA GRAND** as the main AI rescue path:
+The current standalone package implements:
 
-- legacy 5G NR LDPC first
-- strong final-LLR GRAND guard on detected failures
-- learned snapshot selector
-- memory-augmented retrieval of successful post-guard rescue templates
-- lightweight test-time adaptation of template scores for the current failed frame
-- exact local repair and exact syndrome verification
-- conservative best-syndrome fallback
+- legacy 5G NR LDPC decoding with early stop,
+- a strong `final_llr_grand` guard on detected failures,
+- a learned **snapshot selector**,
+- a learned **bit-risk scorer** on the selected snapshot,
+- an **exact meet-in-the-middle syndrome solver** on a compact AI-selected active set,
+- a conservative `best_syndrome_llr` fallback,
+- publication-quality report generation with both CSV and PDF/PNG plots.
 
-The package is designed for the following workflow:
+## Quick start on FIR
 
-1. preserve `.git`, `.gitignore`, `.venv-fir`
-2. wipe the rest of the repo directory
-3. unzip this package
-4. reinstall editable into the existing venv
-5. run smoke → probe → full pipeline
-6. push compact reports and plots to GitHub
+```bash
+cd /home/rsadve1/scratch/Novel_GRAND
+source env/activate_fir.sh
+python -m pip install -e .
 
-## Main scripts
+bash tools/check_tags_package.sh
+sbatch slurm/00_smoke_tags_grand.sbatch
+bash slurm/submit_legacy_probe.sh
+bash tools/check_pipeline_status.sh
+bash slurm/submit_tags_grand_pipeline.sh
+bash tools/check_pipeline_status.sh
+```
 
-- `bash tools/check_tags_package.sh`
-- `sbatch slurm/00_smoke_tags_grand.sbatch`
-- `bash slurm/submit_legacy_probe.sh`
-- `bash tools/check_pipeline_status.sh`
-- `bash slurm/submit_tags_grand_pipeline.sh`
+## Main outputs
 
-## Main output directories
+All generated outputs are placed under:
 
-- `outputs/fir_tags_grand_smoke/`
-- `outputs/fir_legacy_probe_default/`
-- `outputs/fir_tags_grand_autotuned/`
+```text
+outputs/fir_tags_grand_autotuned/
+```
 
-## Main report files
+The most important artifacts are:
 
 - `reports/summary_eval.csv`
-- `reports/net_success_gain_over_final_capmatched.csv`
-- `reports/net_success_gain_over_guard_plus_best_syndrome.csv`
-- `reports/ai_stage_contribution_summary.csv`
-- `reports/query_efficiency_summary.csv`
-- `reports/worker_diversity_summary.csv`
+- `reports/publication_main_table.csv`
+- `reports/summary.md`
+- publication plots in both `.png` and `.pdf`
+
+## Core scientific question
+
+Does the AI rescue path beat strong non-AI baselines under a fair budget?
+
+The package reports this explicitly against:
+
+- `final_llr_grand_capmatched`
+- `guard_plus_best_syndrome`
+- `oracle_best_llr` (upper bound)
