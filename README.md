@@ -2,13 +2,13 @@
 
 Standalone CPU package for FIR experiments on **5G NR LDPC + AI-aided GRAND rescue**.
 
-This release uses **GFlow-TTA GRAND** as the main AI rescue path:
+This release uses **MEMO-TTA GRAND** as the main AI rescue path:
 
 - legacy 5G NR LDPC first
 - strong final-LLR GRAND guard on detected failures
 - learned snapshot selector
-- GFlow-inspired diverse set generation on the selected snapshot
-- cheap test-time adaptation by consensus reconditioning
+- memory-augmented retrieval of successful post-guard rescue templates
+- lightweight test-time adaptation of template scores for the current failed frame
 - exact local repair and exact syndrome verification
 - conservative best-syndrome fallback
 
@@ -35,7 +35,7 @@ The package is designed for the following workflow:
 - `outputs/fir_legacy_probe_default/`
 - `outputs/fir_tags_grand_autotuned/`
 
-## Important report files
+## Main report files
 
 - `reports/summary_eval.csv`
 - `reports/net_success_gain_over_final_capmatched.csv`

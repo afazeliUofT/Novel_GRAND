@@ -1,4 +1,4 @@
-# MaskDiff-GRAND report
+# MEMO-TTA GRAND report
 
 ## Interpretation
 For rescue decoders, **conditional** success means success only on frames that legacy LDPC had already failed.
@@ -12,30 +12,30 @@ For rescue decoders, **conditional** success means success only on frames that l
 - `Eb/N0=14.00 dB`: **oracle_best_llr** with net exact success `0.963938` and average queries per original frame `182.28`.
 
 ## AI stage contribution (conditional on LDPC-detected failures)
-- `Eb/N0=10.00 dB`: guard `0.150224`, ai `0.000000`, fallback `0.008008`, fail `0.841768`.
-- `Eb/N0=11.00 dB`: guard `0.135840`, ai `0.000501`, fallback `0.006516`, fail `0.857143`.
-- `Eb/N0=12.00 dB`: guard `0.145251`, ai `0.000698`, fallback `0.004190`, fail `0.849860`.
-- `Eb/N0=13.00 dB`: guard `0.169458`, ai `0.000000`, fallback `0.006897`, fail `0.823645`.
-- `Eb/N0=14.00 dB`: guard `0.226018`, ai `0.000000`, fallback `0.005256`, fail `0.768725`.
+- `Eb/N0=10.00 dB`: guard `0.150224`, ai `0.001602`, fallback `0.006406`, fail `0.841768`.
+- `Eb/N0=11.00 dB`: guard `0.135840`, ai `0.001504`, fallback `0.005514`, fail `0.857143`.
+- `Eb/N0=12.00 dB`: guard `0.145251`, ai `0.000000`, fallback `0.004190`, fail `0.850559`.
+- `Eb/N0=13.00 dB`: guard `0.169458`, ai `0.000985`, fallback `0.005911`, fail `0.823645`.
+- `Eb/N0=14.00 dB`: guard `0.226018`, ai `0.001314`, fallback `0.003942`, fail `0.768725`.
 
 ## AI stage visit rates
-- `Eb/N0=10.00 dB`: guard visited `1.000000`, ai visited `0.849776`, fallback visited `0.849776`.
-- `Eb/N0=11.00 dB`: guard visited `1.000000`, ai visited `0.864160`, fallback visited `0.863659`.
-- `Eb/N0=12.00 dB`: guard visited `1.000000`, ai visited `0.854749`, fallback visited `0.854050`.
-- `Eb/N0=13.00 dB`: guard visited `1.000000`, ai visited `0.830542`, fallback visited `0.830542`.
-- `Eb/N0=14.00 dB`: guard visited `1.000000`, ai visited `0.773982`, fallback visited `0.773982`.
+- `Eb/N0=10.00 dB`: guard visited `1.000000`, ai visited `0.849776`, fallback visited `0.848174`.
+- `Eb/N0=11.00 dB`: guard visited `1.000000`, ai visited `0.864160`, fallback visited `0.862657`.
+- `Eb/N0=12.00 dB`: guard visited `1.000000`, ai visited `0.854749`, fallback visited `0.854749`.
+- `Eb/N0=13.00 dB`: guard visited `1.000000`, ai visited `0.830542`, fallback visited `0.829557`.
+- `Eb/N0=14.00 dB`: guard visited `1.000000`, ai visited `0.773982`, fallback visited `0.772668`.
 
 ## Budget-matched comparisons
-- `Eb/N0=10.00 dB`: MaskDiff minus `final_llr_grand_capmatched` = `0.001312` net exact success.
-- `Eb/N0=11.00 dB`: MaskDiff minus `final_llr_grand_capmatched` = `0.000500` net exact success.
-- `Eb/N0=12.00 dB`: MaskDiff minus `final_llr_grand_capmatched` = `0.000312` net exact success.
-- `Eb/N0=13.00 dB`: MaskDiff minus `final_llr_grand_capmatched` = `0.000312` net exact success.
-- `Eb/N0=14.00 dB`: MaskDiff minus `final_llr_grand_capmatched` = `0.000250` net exact success.
-- `Eb/N0=10.00 dB`: MaskDiff minus `guard_plus_best_syndrome` = `-0.000125` net exact success.
-- `Eb/N0=11.00 dB`: MaskDiff minus `guard_plus_best_syndrome` = `-0.000188` net exact success.
-- `Eb/N0=12.00 dB`: MaskDiff minus `guard_plus_best_syndrome` = `0.000000` net exact success.
-- `Eb/N0=13.00 dB`: MaskDiff minus `guard_plus_best_syndrome` = `0.000000` net exact success.
-- `Eb/N0=14.00 dB`: MaskDiff minus `guard_plus_best_syndrome` = `-0.000188` net exact success.
+- `Eb/N0=10.00 dB`: MEMO-TTA minus `final_llr_grand_capmatched` = `0.001312` net exact success.
+- `Eb/N0=11.00 dB`: MEMO-TTA minus `final_llr_grand_capmatched` = `0.000500` net exact success.
+- `Eb/N0=12.00 dB`: MEMO-TTA minus `final_llr_grand_capmatched` = `0.000250` net exact success.
+- `Eb/N0=13.00 dB`: MEMO-TTA minus `final_llr_grand_capmatched` = `0.000312` net exact success.
+- `Eb/N0=14.00 dB`: MEMO-TTA minus `final_llr_grand_capmatched` = `0.000250` net exact success.
+- `Eb/N0=10.00 dB`: MEMO-TTA minus `guard_plus_best_syndrome` = `-0.000125` net exact success.
+- `Eb/N0=11.00 dB`: MEMO-TTA minus `guard_plus_best_syndrome` = `-0.000188` net exact success.
+- `Eb/N0=12.00 dB`: MEMO-TTA minus `guard_plus_best_syndrome` = `-0.000062` net exact success.
+- `Eb/N0=13.00 dB`: MEMO-TTA minus `guard_plus_best_syndrome` = `0.000000` net exact success.
+- `Eb/N0=14.00 dB`: MEMO-TTA minus `guard_plus_best_syndrome` = `-0.000188` net exact success.
 
 ## Warnings
 - At least one rescue decoder hit its query cap on 75%+ of invoked frames, indicating search saturation.

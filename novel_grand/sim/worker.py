@@ -8,24 +8,20 @@ import torch
 
 from novel_grand.config import run_root
 from novel_grand.grand.baselines import run_baseline, run_baseline_detailed, run_teacher_best_snapshot_llr
-from novel_grand.grand.gflowtta import run_gflowtta_grand
+from novel_grand.grand.memotta import load_memory_bank, run_memotta_grand
 from novel_grand.grand.tags_lite import run_selector_llr_grand
 from novel_grand.ldpc.bp_trace import BPTraceRunner
-from novel_grand.ldpc.features import teacher_snapshot_training_rows
-from novel_grand.ldpc.pv_features import build_policy_value_training_rows
+from novel_grand.ldpc.features import teacher_snapshot_training_rows, snapshot_feature_vector
 from novel_grand.models.training import (
-    load_action_prior,
     load_snapshot_selector,
-    load_state_value,
+    load_template_ranker,
 )
 from novel_grand.sim.channel import NRSlotQAMLink
 from novel_grand.utils.io import ensure_dir, write_jsonl
 from novel_grand.utils.seed import set_global_seed
 
 
-ACTION_IN_DIM = 19
-VALUE_IN_DIM = 20
-
+TEMPLATE_RANKER_IN_DIM = 40
 
 
 def collect_train_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
@@ -40,19 +36,13 @@ def collect_train_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
 
     n_frames = int(cfg["simulation"]["train_frames_per_worker_per_snr"])
     max_iter = int(cfg["legacy_ldpc"]["num_iter"])
-    rng = np.random.default_rng(seed)
 
     snapshot_rows: List[Dict] = []
-    action_x_rows: List[np.ndarray] = []
-    action_y_rows: List[np.ndarray] = []
-    value_x_rows: List[np.ndarray] = []
-    value_y_rows: List[np.ndarray] = []
+    memory_rows: List[Dict] = []
     frame_rows: List[Dict] = []
 
     gcfg = cfg["grand"]
-    shortlist_topk = int(gcfg.get("gflow_shortlist_topk_bits", 96))
-    neg_to_pos_ratio = int(gcfg.get("gflow_neg_to_pos_ratio", 6))
-    value_negatives_per_prefix = int(gcfg.get("gflow_value_negatives_per_prefix", 3))
+    risky_topk = int(gcfg.get("memo_risky_topk", 64))
 
     for frame_idx in range(n_frames):
         t0 = time.perf_counter()
@@ -86,15 +76,14 @@ def collect_train_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
 
         guard = run_baseline_detailed("final_llr_grand", trace, tracer.graph_exact, cfg)
         if bool(guard.get("success_exact", False)):
-            # AI sees only post-guard failures.
             continue
 
-        teacher_cap = int(gcfg.get("ai_teacher_cap", gcfg.get("rescue_bonus_cap", gcfg["query_cap"])))
+        teacher_cap = int(gcfg.get("memo_teacher_cap", gcfg.get("ai_teacher_cap", gcfg.get("rescue_bonus_cap", gcfg["query_cap"]))))
         oracle_teacher = run_baseline_detailed("oracle_best_llr", trace, tracer.graph_exact, cfg, query_cap=teacher_cap)
         if bool(oracle_teacher.get("success_exact", False)):
             teacher = oracle_teacher
         else:
-            teacher = run_teacher_best_snapshot_llr(trace, tracer.graph_exact, cfg, query_cap=teacher_cap)
+            teacher = run_baseline_detailed("best_syndrome_llr_grand", trace, tracer.graph_exact, cfg, query_cap=teacher_cap)
 
         teacher_exact = bool(teacher.get("success_exact", False))
         teacher_snapshot_idx = int(teacher.get("selected_snapshot_index", len(trace.snapshots) - 1))
@@ -109,54 +98,39 @@ def collect_train_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
             )
         )
 
-        target_mask = None
         if teacher_exact:
-            target_mask = (
-                trace.snapshots[teacher_snapshot_idx].hard.astype(np.uint8)
-                ^ np.asarray(teacher["corrected_bits"], dtype=np.uint8)
-            ).astype(np.float32)
-
-        ax, ay, vx, vy = build_policy_value_training_rows(
-            trace=trace,
-            snapshot_idx=teacher_snapshot_idx,
-            graph_exact=tracer.graph_exact,
-            graph_struct=tracer.graph_struct,
-            max_iter=max_iter,
-            bits_per_symbol=int(cfg["nr"]["bits_per_symbol"]),
-            fft_size=int(cfg["nr"]["fft_size"]),
-            target_mask=target_mask,
-            shortlist_topk_bits=shortlist_topk,
-            neg_to_pos_ratio=neg_to_pos_ratio,
-            value_negatives_per_prefix=value_negatives_per_prefix,
-            rng=rng,
-        )
-        if ax.shape[0] > 0:
-            action_x_rows.append(ax.astype(np.float32))
-            action_y_rows.append(ay.astype(np.float32))
-        if vx.shape[0] > 0:
-            value_x_rows.append(vx.astype(np.float32))
-            value_y_rows.append(vy.astype(np.float32))
+            snap = trace.snapshots[teacher_snapshot_idx]
+            state_x = snapshot_feature_vector(
+                snap,
+                max_iter=max_iter,
+                max_vn_degree=tracer.graph_struct.max_vn_degree,
+                n=len(trace.true_codeword),
+                m=tracer.graph_exact.m,
+            )
+            inv_abs_post = 1.0 / (np.abs(snap.posterior).astype(np.float32) + 1e-3)
+            unsat = snap.unsat_deg.astype(np.float32)
+            flips = snap.cumulative_flip_count.astype(np.float32)
+            score = 0.65 * (inv_abs_post.argsort().argsort() / max(len(inv_abs_post) - 1, 1)) + 0.25 * (unsat.argsort().argsort() / max(len(unsat) - 1, 1)) + 0.10 * (flips.argsort().argsort() / max(len(flips) - 1, 1))
+            risky = np.argsort(score)[::-1][:risky_topk].astype(int).tolist()
+            corrected = np.asarray(teacher["corrected_bits"], dtype=np.uint8)
+            corr_bits = np.flatnonzero(snap.hard.astype(np.uint8) ^ corrected).astype(int).tolist()
+            if corr_bits:
+                memory_rows.append(
+                    {
+                        "state_x": state_x.astype(np.float32).tolist(),
+                        "snapshot_idx": int(teacher_snapshot_idx),
+                        "risky_topk": risky,
+                        "correction_bits": corr_bits,
+                        "teacher_queries": int(teacher.get("queries", 0)),
+                        "ebn0_db": float(ebn0_db),
+                    }
+                )
 
     snapshot_path = shard_dir / f"snapshot_rows_worker{worker_id:02d}_snr{ebn0_db:.2f}.jsonl"
     write_jsonl(snapshot_path, snapshot_rows)
 
-    action_npz_path = shard_dir / f"action_rows_worker{worker_id:02d}_snr{ebn0_db:.2f}.npz"
-    if action_x_rows:
-        ax = np.concatenate(action_x_rows, axis=0).astype(np.float32)
-        ay = np.concatenate(action_y_rows, axis=0).astype(np.float32)
-    else:
-        ax = np.zeros((0, ACTION_IN_DIM), dtype=np.float32)
-        ay = np.zeros((0,), dtype=np.float32)
-    np.savez_compressed(action_npz_path, x=ax, y=ay)
-
-    value_npz_path = shard_dir / f"value_rows_worker{worker_id:02d}_snr{ebn0_db:.2f}.npz"
-    if value_x_rows:
-        vx = np.concatenate(value_x_rows, axis=0).astype(np.float32)
-        vy = np.concatenate(value_y_rows, axis=0).astype(np.float32)
-    else:
-        vx = np.zeros((0, VALUE_IN_DIM), dtype=np.float32)
-        vy = np.zeros((0,), dtype=np.float32)
-    np.savez_compressed(value_npz_path, x=vx, y=vy)
+    memory_path = shard_dir / f"memory_rows_worker{worker_id:02d}_snr{ebn0_db:.2f}.jsonl"
+    write_jsonl(memory_path, memory_rows)
 
     frame_path = shard_dir / f"ldpc_frames_worker{worker_id:02d}_snr{ebn0_db:.2f}.jsonl"
     write_jsonl(frame_path, frame_rows)
@@ -166,11 +140,9 @@ def collect_train_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
         "ebn0_db": ebn0_db,
         "n_frames": n_frames,
         "n_snapshot_rows": len(snapshot_rows),
-        "n_action_rows": int(ax.shape[0]),
-        "n_value_rows": int(vx.shape[0]),
+        "n_memory_rows": len(memory_rows),
         "snapshot_path": str(snapshot_path),
-        "action_npz_path": str(action_npz_path),
-        "value_npz_path": str(value_npz_path),
+        "memory_path": str(memory_path),
         "frame_path": str(frame_path),
     }
 
@@ -196,18 +168,16 @@ def evaluate_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
         in_dim=12,
         device=cfg["system"]["device"],
     )
-    action_model = load_action_prior(
-        models_dir / "action_prior.pt",
-        hidden_dims=cfg["training"].get("action_hidden_dims", cfg["training"].get("bit_hidden_dims", [128, 96])),
-        in_dim=ACTION_IN_DIM,
-        device=cfg["system"]["device"],
-    )
-    value_model = load_state_value(
-        models_dir / "state_value.pt",
-        hidden_dims=cfg["training"].get("value_hidden_dims", cfg["training"].get("snapshot_hidden_dims", [128, 64])),
-        in_dim=VALUE_IN_DIM,
-        device=cfg["system"]["device"],
-    )
+    template_ranker = None
+    template_ranker_path = models_dir / "template_ranker.pt"
+    if template_ranker_path.exists():
+        template_ranker = load_template_ranker(
+            template_ranker_path,
+            hidden_dims=cfg["training"].get("template_hidden_dims", cfg["training"].get("action_hidden_dims", [128, 96])),
+            in_dim=TEMPLATE_RANKER_IN_DIM,
+            device=cfg["system"]["device"],
+        )
+    memory_bank = load_memory_bank(models_dir / "memory_bank.jsonl")
 
     n_frames = int(cfg["simulation"]["eval_frames_per_worker_per_snr"])
     max_failure_samples = int(cfg["simulation"]["sampled_failure_traces_per_worker_per_snr"])
@@ -219,7 +189,7 @@ def evaluate_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
         "final_llr_grand_capmatched",
         "guard_plus_best_syndrome",
         "selector_llr_grand",
-        "gflowtta_grand",
+        "memotta_grand",
     ]
     if cfg["grand"].get("keep_oracle_upper_bound", False):
         baselines.append("oracle_best_llr")
@@ -258,8 +228,8 @@ def evaluate_worker(cfg: Dict, worker_id: int, ebn0_db: float) -> Dict:
                 t1 = time.perf_counter()
                 if name == "selector_llr_grand":
                     res = run_selector_llr_grand(trace, graph_exact, graph_struct, snapshot_model, cfg)
-                elif name == "gflowtta_grand":
-                    res = run_gflowtta_grand(trace, graph_exact, graph_struct, snapshot_model, action_model, value_model, cfg)
+                elif name == "memotta_grand":
+                    res = run_memotta_grand(trace, graph_exact, graph_struct, snapshot_model, template_ranker, memory_bank, cfg)
                 else:
                     res = run_baseline(name, trace, graph_exact, cfg)
                 res.update(

@@ -201,7 +201,7 @@ def _primitive_usage(frame_df: pd.DataFrame) -> pd.DataFrame:
 
 
 
-PRIMARY_AI_DECODER = "gflowtta_grand"
+PRIMARY_AI_DECODER = "memotta_grand"
 
 
 def _ai_stage_contribution(frame_df: pd.DataFrame) -> pd.DataFrame:
@@ -297,7 +297,7 @@ def _write_markdown(
     df_gain_guard_best: pd.DataFrame,
 ) -> None:
     lines = []
-    lines.append("# MaskDiff-GRAND report")
+    lines.append("# MEMO-TTA GRAND report")
     lines.append("")
     lines.append("## Interpretation")
     lines.append("For rescue decoders, **conditional** success means success only on frames that legacy LDPC had already failed.")
@@ -346,13 +346,13 @@ def _write_markdown(
             row = g[g["decoder"] == PRIMARY_AI_DECODER]
             if not row.empty:
                 gain = float(row.iloc[0]["net_success_gain_over_final_capmatched"])
-                lines.append(f"- `Eb/N0={ebn0_db:.2f} dB`: MaskDiff minus `final_llr_grand_capmatched` = `{gain:.6f}` net exact success.")
+                lines.append(f"- `Eb/N0={ebn0_db:.2f} dB`: MEMO-TTA minus `final_llr_grand_capmatched` = `{gain:.6f}` net exact success.")
     if not df_gain_guard_best.empty:
         for ebn0_db, g in df_gain_guard_best.groupby("ebn0_db", sort=True):
             row = g[g["decoder"] == PRIMARY_AI_DECODER]
             if not row.empty:
                 gain = float(row.iloc[0]["net_success_gain_over_guard_plus_best_syndrome"])
-                lines.append(f"- `Eb/N0={ebn0_db:.2f} dB`: MaskDiff minus `guard_plus_best_syndrome` = `{gain:.6f}` net exact success.")
+                lines.append(f"- `Eb/N0={ebn0_db:.2f} dB`: MEMO-TTA minus `guard_plus_best_syndrome` = `{gain:.6f}` net exact success.")
     if warnings:
         lines.append("")
         lines.append("## Warnings")

@@ -293,6 +293,26 @@ class StateValueModel:
 
 
 
+
+
+@dataclass
+class TemplateRankerModel:
+    model: nn.Module
+    mean: np.ndarray
+    std: np.ndarray
+    device: str
+
+    def predict_logits(self, x: np.ndarray) -> np.ndarray:
+        xx = _standardize_apply(x.astype(np.float32), self.mean, self.std)
+        with torch.no_grad():
+            out = self.model(torch.from_numpy(xx).to(self.device)).reshape(-1).cpu().numpy()
+        return out.astype(np.float32)
+
+    def predict_prob(self, x: np.ndarray) -> np.ndarray:
+        logits = self.predict_logits(x)
+        return (1.0 / (1.0 + np.exp(-logits))).astype(np.float32)
+
+
 def fit_action_prior(x, y, cfg, device="cpu"):
     tr_cfg = cfg["training"]
     hidden_dims = tr_cfg.get("action_hidden_dims", tr_cfg["bit_hidden_dims"])
@@ -347,6 +367,36 @@ def load_state_value(path: str | Path, hidden_dims, in_dim: int, device: str = "
     model.load_state_dict(ckpt["state_dict"])
     model.eval()
     return StateValueModel(
+        model=model,
+        mean=_to_numpy(ckpt["mean"]),
+        std=_to_numpy(ckpt["std"]),
+        device=device,
+    )
+
+
+
+def fit_template_ranker(x, y, cfg, device="cpu"):
+    tr_cfg = cfg["training"]
+    hidden_dims = tr_cfg.get("template_hidden_dims", tr_cfg.get("action_hidden_dims", tr_cfg["bit_hidden_dims"]))
+    return _fit_common(
+        x=x,
+        y=y,
+        hidden_dims=hidden_dims,
+        epochs=int(tr_cfg["epochs"]),
+        batch_size=int(tr_cfg["batch_size"]),
+        lr=float(tr_cfg["learning_rate"]),
+        weight_decay=float(tr_cfg["weight_decay"]),
+        device=device,
+        task="binary",
+    )
+
+
+def load_template_ranker(path: str | Path, hidden_dims, in_dim: int, device: str = "cpu") -> TemplateRankerModel:
+    ckpt = _safe_torch_load(path, device=device)
+    model = TabularMLP(in_dim, hidden_dims).to(device)
+    model.load_state_dict(ckpt["state_dict"])
+    model.eval()
+    return TemplateRankerModel(
         model=model,
         mean=_to_numpy(ckpt["mean"]),
         std=_to_numpy(ckpt["std"]),

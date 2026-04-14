@@ -65,6 +65,20 @@ grand:
   ai_blend_max_primitives_in_pattern: 12
   ai_blend_max_group_count: 16
   ai_teacher_cap: 2500
+
+  # Memory-augmented test-time-adaptive rescue path.
+  memo_teacher_cap: 2500
+  memo_snapshot_candidates: 3
+  memo_risky_topk: 64
+  memo_topk_retrieve: 16
+  memo_templates_to_expand: 8
+  memo_variants_per_template: 3
+  memo_diversity_penalty: 0.10
+  memo_tta_strength: 1.00
+  memo_local_pool_extra: 12
+  memo_local_pool_cap: 20
+  memo_local_repair_max_toggles: 2
+  memo_negatives_per_positive: 6
   bit_model_main_weight: 0.3
   llr_model_main_weight: 0.35
   channel_model_main_weight: 0.15
